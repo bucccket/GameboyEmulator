@@ -15,7 +15,9 @@ int main()
 	struct timespec timer;
 	// long nsecsA, nsecsB;
 
-	short pc, sp;
+	BYTE ram[0x10000]; // $0000-$FFFF
+
+	unsigned short pc, sp;
 	struct Registers reg = {
 		.A = 0,
 		.B = 0,
@@ -27,7 +29,7 @@ int main()
 		.L = 0
 	};
 
-	struct Flags flags = {
+	struct Flags flag = {
 		.Z = 0,
 		.N = 0,
 		.H = 0,
@@ -36,11 +38,12 @@ int main()
 	};
 
 	clock_gettime(CLOCK_REALTIME, &timer);
-	while (1) {
+	while (!flag.HLT) {
 
 		// nsecsA = timer.tv_nsec;
 		clock_gettime(CLOCK_REALTIME, &timer);
-		CpuStep(memory, &pc, &sp, &reg, &flags);
+		if (CpuStep(memory, ram, &pc, &sp, &reg, &flag) != CPU_OK)
+			break;
 		// nsecsB = timer.tv_nsec;
 		//  printf("diff: %ldns\n", nsecsB - nsecsA);
 		clock_gettime(CLOCK_REALTIME, &timer);
