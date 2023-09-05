@@ -130,6 +130,7 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		// op
 
 		// done
+		++*pc;
 		printf("[INSTR] LD (FF00+C),A\n");
 		break;
 	default:
