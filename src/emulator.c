@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include "boot.h"
@@ -16,6 +17,7 @@ int main()
 	// long nsecsA, nsecsB;
 
 	BYTE ram[0x10000]; // $0000-$FFFF
+	memset(ram, 0x00, 0x10000);
 
 	unsigned short pc, sp;
 	struct Registers reg = {

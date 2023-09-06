@@ -2,7 +2,7 @@
 
 int BootLoadRom(BYTE* memory)
 {
-	const char* BootRomPath = "boot/dmg0_rom.bin";
+	const char* BootRomPath = "boot/DMG_ROM.bin";
 
 	if (!memory) {
 		printf("[ERROR] %s: no allocated memory for\n", __func__);

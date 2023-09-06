@@ -10,9 +10,9 @@
 
 // combined registers - register name prefixed
 
-#define AB ((short)reg->B | reg->A << 010)
-#define CD ((short)reg->D | reg->C << 010)
-#define EF ((short)reg->F | reg->E << 010)
+#define AF ((short)reg->F | reg->A << 010)
+#define BC ((short)reg->C | reg->B << 010)
+#define DE ((short)reg->E | reg->D << 010)
 #define HL ((short)reg->L | reg->H << 010)
 
 struct Registers {
@@ -35,3 +35,4 @@ struct Flags {
 };
 
 int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* sp, struct Registers* reg, struct Flags* flags);
+void PrintBinary8(BYTE u8);
