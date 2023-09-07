@@ -9,6 +9,13 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		// done
 		++*pc;
 		break;
+	case 0X04: // INC B
+		// op
+		reg->B++;
+		// done
+		printf("[INSTR] INC B\n");
+		++*pc;
+		break;
 	case 0x06: // LD B,u8
 		// op
 		reg->B = memory[++*pc];
@@ -22,9 +29,7 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		flag->N = 1;
 		flag->H = 0;
 		// op
-		if (((reg->B & 0xF) + 1) & 0x10)
-			flag->H = 1;
-		reg->B++;
+		reg->B--;
 		if (!reg->B)
 			flag->Z = 1;
 		// done
@@ -36,6 +41,19 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		reg->C++;
 		// done
 		printf("[INSTR] INC C\n");
+		++*pc;
+		break;
+	case 0X0D: // DEC C
+		// flag
+		flag->Z = 0;
+		flag->N = 1;
+		flag->H = 0;
+		// op
+		reg->C--;
+		if (!reg->C)
+			flag->Z = 1;
+		// done
+		printf("[INSTR] DEC A\n");
 		++*pc;
 		break;
 	case 0x0E: // LD C,u8
@@ -78,11 +96,28 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		printf("[INSTR] RL A\n");
 		++*pc;
 		break;
+	case 0x18: // JR i8
+	{
+		// op
+		char offset = (char)memory[++*pc];
+		*pc += offset;
+		// done
+		++*pc;
+		printf("[INSTR] JR NZ,$%d pc=%04X\n", offset, *pc);
+		break;
+	}
 	case 0x1A: // LD A,(DE)
 		// op
 		reg->A = ram[DE];
 		// done
 		printf("[INSTR] LD A,(DE)\n");
+		++*pc;
+		break;
+	case 0x1E: // LD E,u8
+		// op
+		reg->E = memory[++*pc];
+		// done
+		printf("[INSTR] LD E,$%02X\n", memory[*pc]);
 		++*pc;
 		break;
 	case 0x20: // JR NZ,i8
@@ -95,8 +130,6 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		// done
 		++*pc;
 		printf("[INSTR] JR NZ,$%d pc=%04X %s\n", offset, *pc, !flag->Z ? "JMP" : "CONTINUE");
-		if (*pc > 0x0010)
-			getchar();
 		break;
 	}
 	case 0x21: // LD HL,u16
@@ -130,6 +163,25 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		++*pc;
 		break;
 	}
+	case 0x28: // JR Z,i8
+	{
+		// op
+		char offset = (char)memory[++*pc];
+		if (flag->Z) {
+			*pc += offset;
+		}
+		// done
+		++*pc;
+		printf("[INSTR] JR Z,$%d pc=%04X %s\n", offset, *pc, !flag->Z ? "JMP" : "CONTINUE");
+		break;
+	}
+	case 0x2E: // LD L,u8
+		// op
+		reg->L = memory[++*pc];
+		// done
+		printf("[INSTR] LD L,$%02X\n", memory[*pc]);
+		++*pc;
+		break;
 	case 0x31: // LD SP,u16
 		// op
 		*sp = memory[*pc + 1] | memory[*pc + 2] << 010;
@@ -149,6 +201,19 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		printf("[INSTR] LD (HL-),A\n");
 		break;
 	}
+	case 0X3D: // DEC A
+		// flag
+		flag->Z = 0;
+		flag->N = 1;
+		flag->H = 0;
+		// op
+		reg->A--;
+		if (!reg->A)
+			flag->Z = 1;
+		// done
+		printf("[INSTR] DEC A\n");
+		++*pc;
+		break;
 	case 0x3E: // LD A,u8
 		// op
 		reg->A = memory[++*pc];
@@ -163,12 +228,33 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		printf("[INSTR] LD C,A\n");
 		++*pc;
 		break;
+	case 0x57: // LD D,A
+		// op
+		reg->D = reg->A;
+		// done
+		printf("[INSTR] LD D,A\n");
+		++*pc;
+		break;
+	case 0x67: // LD H,A
+		// op
+		reg->H = reg->A;
+		// done
+		printf("[INSTR] LD H,A\n");
+		++*pc;
+		break;
 	case 0x77: // LD (HL),A
 		// op
 		ram[HL] = reg->A;
 		// done
 		++*pc;
 		printf("[INSTR] LD (HL),A\n");
+		break;
+	case 0x7B: // LD A,E
+		// op
+		reg->A = reg->E;
+		// done
+		printf("[INSTR] LD A,E\n");
+		++*pc;
 		break;
 	case 0xAF: // XOR A,A
 		// flag
@@ -185,6 +271,7 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		printf("[INSTR] XOR A,A -> A=%04X Z=%d\n", reg->A, flag->Z);
 		break;
 	case 0xBE: // CP A,(HL)
+	{
 		// flag
 		flag->N = 1;
 		flag->C = 0;
@@ -200,13 +287,14 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		printf("[INSTR] CP A, (HL)\n");
 		++*pc;
 		break;
+	}
 	case 0xC1: // POP BC
 		// op
-		reg->B = ram[++*sp];
 		reg->C = ram[++*sp];
+		reg->B = ram[++*sp];
 		// done
 		++*pc;
-		printf("[INSTR] POP BC\n");
+		printf("[INSTR] POP BC => BC=%04X\n", BC);
 		break;
 	case 0xC5: // PUSH BC
 		// op
@@ -214,7 +302,7 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		ram[(*sp)--] = reg->C;
 		// done
 		++*pc;
-		printf("[INSTR] PUSH BC\n");
+		printf("[INSTR] PUSH BC => BC=%04X\n", BC);
 		break;
 	case 0xC9: // RET
 		// op
@@ -234,11 +322,9 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 			flag->Z = 0;
 			flag->C = reg->C & 0x80; // old bit #7
 			// op
-			PrintBinary8(reg->C);
 			reg->C = reg->C << 1 | (flag->C > 0);
 			if (!reg->C)
 				flag->Z = 1;
-			PrintBinary8(reg->C);
 			// done
 			printf("[INSTR] RL C\n");
 			++*pc;
@@ -264,14 +350,13 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 	case 0xCD: // CALL u16
 	{
 		// op
-		short address = memory[++*pc];
+		unsigned short address = memory[++*pc];
 		address |= memory[++*pc] << 010;
 		ram[(*sp)--] = *pc >> 010;
 		ram[(*sp)--] = *pc & 0xFF;
 		*pc = address;
 		// done
 		printf("[INSTR] CALL $%04X\n", *pc);
-		getchar();
 		break;
 	}
 	case 0xE0: // LD (FF00+u8),A
@@ -288,6 +373,16 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		++*pc;
 		printf("[INSTR] LD (FF00+C),A\n");
 		break;
+	case 0xEA: // LD (u16),A
+	{
+		// op
+		unsigned short u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
+		ram[u16] = reg->A;
+		// done
+		*pc += 3;
+		printf("[INSTR] LD (%04X),A\n", u16);
+		break;
+	}
 	case 0xE5: // PUSH HL
 		// op
 		ram[(*sp)--] = reg->H;
@@ -296,6 +391,32 @@ int CpuStep(const BYTE* memory, BYTE* ram, unsigned short* pc, unsigned short* s
 		++*pc;
 		printf("[INSTR] PUSH HL\n");
 		break;
+	case 0xF0: // LD A,(FF00+u8)
+		// op
+		reg->A = ram[0xFF00 + memory[++*pc]];
+		// done
+		printf("[INSTR] LD A,($FF00 + $%02X) A=%02X\n", memory[*pc], reg->A);
+		++*pc;
+		getchar();
+		break;
+	case 0xFE: // CP A,(u8)
+	{
+		// flag
+		flag->N = 1;
+		flag->C = 0;
+		flag->Z = 0;
+		// op
+		BYTE u8 = memory[++*pc];
+		if (reg->A == u8) {
+			flag->Z = 1;
+		} else if (reg->A < u8) {
+			flag->C = 1;
+		}
+		// done
+		printf("[INSTR] CP A, $%02X\n", u8);
+		++*pc;
+		break;
+	}
 	default:
 		printf("[ERROR] %s: Unkown instruction 0x%02X at 0x%04hX\n", __func__, opcode, *pc);
 		return CPU_ERROR_UNK_INSTRUCTION;

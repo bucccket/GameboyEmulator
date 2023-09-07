@@ -12,6 +12,8 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -Wall -Wpedantic -Werror
 
+LDFLAGS ?= -lX11 -L./lib -lminifb -lX11 -lGL
+
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 

@@ -5,6 +5,7 @@
 #include "boot.h"
 #include "cpu.h"
 #include "emulator_types.h"
+// #include "window.h"
 
 int main()
 {
@@ -12,6 +13,9 @@ int main()
 
 	BYTE memory[0x100];
 	BootLoadRom(memory);
+
+	// struct mfb_window* window = mfb_open("Noise Test", g_width, g_height);
+	//  WinInit(window);
 
 	struct timespec timer;
 	// long nsecsA, nsecsB;
@@ -46,6 +50,8 @@ int main()
 		clock_gettime(CLOCK_REALTIME, &timer);
 		if (CpuStep(memory, ram, &pc, &sp, &reg, &flag) != CPU_OK)
 			break;
+		// if (WinUpdate(window, (BYTE*)(ram + 0x8000)) || !mfb_wait_sync(window))
+		// break;
 		// nsecsB = timer.tv_nsec;
 		//  printf("diff: %ldns\n", nsecsB - nsecsA);
 		clock_gettime(CLOCK_REALTIME, &timer);
