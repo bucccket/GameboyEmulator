@@ -1,0 +1,3483 @@
+#include <stdint.h>
+
+#include "cpu.h"
+
+int OldCpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
+               struct Registers *reg, struct Flags *flag, uint8_t *cycles) {
+  DEBUG_PRINT("$%04X \t", *pc);
+  uint8_t opcode = memory[*pc];
+  switch (opcode) {
+    case 0x00:  // NOP
+      // done
+      DEBUG_PRINT("[INSTR] NOP\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    case 0x01:  // LD BC,u16
+      // op
+      reg->C = memory[++*pc];
+      reg->B = memory[++*pc];
+      // done
+      *cycles = 12;
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD BC,$%04X\n", BC);
+      break;
+    case 0x02:  // LD (BC),A
+      // op
+      ram[BC] = reg->A;
+      // done
+      *cycles = 8;
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (BC),A\n");
+      break;
+    case 0x03:  // INC BC
+    {
+      // op
+      uint16_t u16 = (uint16_t)BC + 1;
+      reg->B = u16 >> 010;
+      reg->C = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] INC BC\n");
+      *cycles = 8;
+      ++*pc;
+      break;
+    }
+    case 0X04:  // INC B
+      // flag
+      RES_N;
+      // op
+      IF_H(HALFCARRY_8(reg->B, 1));
+      reg->B++;
+      IF_Z(reg->B == 0);
+      // done
+      DEBUG_PRINT("[INSTR] INC B\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    case 0X05:  // DEC B
+      // flag
+      SET_N;
+      // op
+      IF_C(HALFCARRY_8(reg->B, (~1 + 1)));
+      reg->B--;
+      IF_Z(reg->B == 0);
+      // done
+      DEBUG_PRINT("[INSTR] DEC B\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    case 0x06:  // LD B,u8
+      // op
+      reg->B = memory[++*pc];
+      // done
+      *cycles = 8;
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD B,$%02X\n", reg->B);
+      break;
+    case 0x07:  // RLCA
+      // flags
+      RES_N;
+      RES_H;
+      // op
+      IF_C((reg->A & 0x80) == 0x80);
+      reg->A = reg->A << 1;
+      IF_Z(!reg->A);
+      break;
+    case 0x08:  // LD (u16),SP
+    {
+      // op
+      uint16_t u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
+      ram[u16] = *sp & 0xFF;
+      ram[u16] = *sp >> 010;
+      // done
+      DEBUG_PRINT("[INSTR] LD (%04X),SP\n", u16);
+      *pc += 3;
+      break;
+    }
+    case 0x09:  // ADD HL,BC
+    {
+      // flags
+      RES_N;
+      // op
+      uint16_t u16 = HL + BC;
+      IF_H(HALFCARRY_16(HL, BC));
+      IF_C(CARRY_16(HL, BC));
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] ADD HL,BC\n");
+      ++*pc;
+      break;
+    }
+    case 0x0A:  // LD A,(BC)
+      // op
+      reg->A = ram[BC];
+      // done
+      DEBUG_PRINT("[INSTR] LD A,(BC)\n");
+      ++*pc;
+      break;
+    case 0X0C:  // INC C
+      // flag
+      RES_N;
+      // op
+      IF_H(HALFCARRY_8(reg->C, 1));
+      reg->C++;
+      IF_Z(reg->C == 0);
+      // done
+      DEBUG_PRINT("[INSTR] INC C\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    case 0X0D:  // DEC C
+      // flag
+      SET_N;
+      // op
+      IF_C(HALFCARRY_8(reg->C, (~1 + 1)));
+      reg->C--;
+      IF_Z(reg->C == 0);
+      // done
+      DEBUG_PRINT("[INSTR] DEC C\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    case 0x0E:  // LD C,u8
+      // op
+      reg->C = memory[++*pc];
+      // done
+      DEBUG_PRINT("[INSTR] LD C,$%02X\n", memory[*pc]);
+      *cycles = 8;
+      ++*pc;
+      break;
+    case 0x11:  // LD DE,u16
+      // op
+      reg->E = memory[++*pc];
+      reg->D = memory[++*pc];
+      // done
+      DEBUG_PRINT("[INSTR] LD DE,$%04X\n", DE);
+      *cycles = 12;
+      ++*pc;
+      break;
+    case 0x13:  // INC DE
+    {
+      // op
+      uint16_t u16 = DE + 1;
+      reg->D = u16 >> 010;
+      reg->E = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] INC DE\n");
+      ++*pc;
+      break;
+    }
+    case 0x17:  // RLA
+    {
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->Z = 0;
+      uint8_t u8 = flag->C;
+      flag->C = reg->A & 0x80;  // old bit #7
+      // op
+      reg->A = reg->A << 1 | (u8 > 0);
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] RLA\n");
+      ++*pc;
+      break;
+    }
+    case 0x18:  // JR i8
+    {
+      // op
+      char offset = (char)memory[++*pc];
+      *pc += offset;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JR $%d pc=%04X\n", offset, *pc);
+      break;
+    }
+    case 0x19:  // ADD HL,DE
+    {
+      // flags
+      flag->C = 0;
+      flag->H = 0;
+      flag->N = 0;
+      // op
+      uint16_t u16 = HL + DE;
+      if ((HL + DE) & 0x10000) flag->C = 1;
+      if (((HL & 0xFFF) + (DE & 0xFFF)) & 0x1000)  // H at bit 11
+        flag->H = 1;
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] ADD HL,DE\n");
+      ++*pc;
+      break;
+    }
+    case 0x1A:  // LD A,(DE)
+      // op
+      reg->A = ram[DE];
+      // done
+      DEBUG_PRINT("[INSTR] LD A,(DE)\n");
+      ++*pc;
+      break;
+    case 0x1E:  // LD E,u8
+      // op
+      reg->E = memory[++*pc];
+      // done
+      DEBUG_PRINT("[INSTR] LD E,$%02X\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0x1F:  // RRA
+    {
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->Z = 0;
+      uint8_t u8 = flag->C;
+      flag->C = reg->A & 0x1;  // old bit #0
+      // op
+      reg->A = reg->A >> 1 | (u8 > 0) << 7;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] RRA\n");
+      ++*pc;
+      break;
+    }
+    case 0x20:  // JR NZ,i8
+    {
+      // op
+      char offset = (char)memory[++*pc];
+      if (!flag->Z) {
+        *pc += offset;
+      }
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JR NZ,$%d pc=%04X %s\n", offset, *pc,
+                  !flag->Z ? "JMP" : "CONTINUE");
+      break;
+    }
+    case 0x21:  // LD HL,u16
+      // op
+      reg->L = memory[++*pc];
+      reg->H = memory[++*pc];
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD HL,$%04X\n", HL);
+      break;
+    case 0x22:  // LD (HL+),A
+    {
+      // op
+      ram[HL] = reg->A;
+      uint16_t u16 = HL + 1;
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL+),A\n");
+      break;
+    }
+    case 0x23:  // INC HL
+    {
+      // op
+      uint16_t u16 = HL + 1;
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] INC HL\n");
+      ++*pc;
+      break;
+    }
+    case 0x27:  // DAA
+    {
+      // flag
+      flag->C = 0;
+      // op
+      uint8_t oldA = reg->A;
+      uint8_t corr = 0;
+      if (flag->H || (!flag->N && (reg->A & 0xF) > 0x9)) corr |= 0x6;
+      if (flag->C || (!flag->N && reg->A > 0x99)) {
+        corr |= 0x66;
+        flag->C = 1;
+      }
+
+      reg->A += flag->N ? -corr : corr;
+
+      flag->Z = (reg->A == 0);
+
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] DAA A=%02X->%02X\n", oldA, reg->A);
+      break;
+    }
+    case 0x28:  // JR Z,i8
+    {
+      // op
+      char offset = (char)memory[++*pc];
+      if (flag->Z) {
+        *pc += offset;
+      }
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JR Z,$%d pc=%04X %s\n", offset, *pc,
+                  !flag->Z ? "JMP" : "CONTINUE");
+      break;
+    }
+    case 0x2A:  // LD A,(HL+)
+    {
+      // op
+      reg->A = ram[HL];
+      uint16_t u16 = HL + 1;
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,(HL+)\n");
+      ++*pc;
+      break;
+    }
+    case 0X2B:  // DEC HL
+    {
+      // flag
+      flag->Z = 0;
+      flag->N = 1;
+      flag->H = 0;
+      // op
+      uint16_t u16 = HL - 1;
+      if (!u16) flag->Z = 1;
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      DEBUG_PRINT("[INSTR] DEC HL\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    }
+    case 0x2E:  // LD L,u8
+      // op
+      reg->L = memory[++*pc];
+      // done
+      DEBUG_PRINT("[INSTR] LD L,$%02X\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0x30:  // JR NC,i8
+    {
+      // op
+      char offset = (char)memory[++*pc];
+      if (!flag->C) {
+        *pc += offset;
+      }
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JR NC,$%d pc=%04X %s\n", offset, *pc,
+                  !flag->C ? "JMP" : "CONTINUE");
+      break;
+    }
+    case 0x31:  // LD SP,u16
+      // op
+      *sp = memory[*pc + 1] | memory[*pc + 2] << 010;
+      // done
+      *pc += 3;
+      DEBUG_PRINT("[INSTR] LD SP,$%04hX\n", *sp);
+      break;
+    case 0x32:  // LD (HL-),A
+    {
+      // op
+      ram[HL] = reg->A;
+      uint16_t u16 = HL - 1;
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL-),A\n");
+      break;
+    }
+    case 0X3C:  // INC A
+      // flag
+      RES_N;
+      // op
+      IF_H(HALFCARRY_8(reg->A, 1));
+      reg->A++;
+      IF_Z(reg->A == 0);
+      // done
+      DEBUG_PRINT("[INSTR] INC A\n");
+      *cycles = 4;
+      ++*pc;
+      break;
+    case 0X3D:  // DEC A
+      // flag
+      flag->Z = 0;
+      flag->N = 1;
+      flag->H = 0;
+      // op
+      reg->A--;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] DEC A\n");
+      ++*pc;
+      break;
+    case 0x3E:  // LD A,u8
+      // op
+      reg->A = memory[++*pc];
+      // done
+      DEBUG_PRINT("[INSTR] LD A,$%02X\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0x3F:  // CCF
+      // op
+      flag->C = !flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] CCF\n");
+      ++*pc;
+      break;
+    case 0x40:  // LD B,B
+      // op
+      reg->B = reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,B\n");
+      ++*pc;
+      break;
+    case 0x41:  // LD B,C
+      // op
+      reg->B = reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,C\n");
+      ++*pc;
+      break;
+    case 0x42:  // LD B,D
+      // op
+      reg->B = reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,D\n");
+      ++*pc;
+      break;
+    case 0x43:  // LD B,E
+      // op
+      reg->B = reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,E\n");
+      ++*pc;
+      break;
+    case 0x44:  // LD B,H
+      // op
+      reg->B = reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,H\n");
+      ++*pc;
+      break;
+    case 0x45:  // LD B,L
+      // op
+      reg->B = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,L\n");
+      ++*pc;
+      break;
+    case 0x47:  // LD B,A
+      // op
+      reg->B = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD B,A\n");
+      ++*pc;
+      break;
+    case 0x48:  // LD C,B
+      // op
+      reg->C = reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,B\n");
+      ++*pc;
+      break;
+    case 0x49:  // LD C,C
+      // op
+      reg->C = reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,C\n");
+      ++*pc;
+      break;
+    case 0x4A:  // LD C,D
+      // op
+      reg->C = reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,D\n");
+      ++*pc;
+      break;
+    case 0x4B:  // LD C,E
+      // op
+      reg->C = reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,E\n");
+      ++*pc;
+      break;
+    case 0x4C:  // LD C,H
+      // op
+      reg->C = reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,H\n");
+      ++*pc;
+      break;
+    case 0x4D:  // LD C,L
+      // op
+      reg->C = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,L\n");
+      ++*pc;
+      break;
+    case 0x4F:  // LD C,A
+      // op
+      reg->C = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD C,A\n");
+      ++*pc;
+      break;
+    case 0x50:  // LD D,B
+      // op
+      reg->D = reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,B\n");
+      ++*pc;
+      break;
+    case 0x51:  // LD D,C
+      // op
+      reg->D = reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,C\n");
+      ++*pc;
+      break;
+    case 0x52:  // LD D,D
+      // op
+      reg->D = reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,D\n");
+      ++*pc;
+      break;
+    case 0x53:  // LD D,E
+      // op
+      reg->D = reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,E\n");
+      ++*pc;
+      break;
+    case 0x54:  // LD D,H
+      // op
+      reg->D = reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,H\n");
+      ++*pc;
+      break;
+    case 0x55:  // LD D,L
+      // op
+      reg->D = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,L\n");
+      ++*pc;
+      break;
+    case 0x56:  // LD D,(HL)
+      // op
+      reg->D = ram[HL];
+      // done
+      DEBUG_PRINT("[INSTR] LD D,(HL)\n");
+      ++*pc;
+      break;
+    case 0x57:  // LD D,A
+      // op
+      reg->D = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD D,A\n");
+      ++*pc;
+      break;
+    case 0x5E:  // LD E,(HL)
+      // op
+      reg->E = ram[HL];
+      // done
+      DEBUG_PRINT("[INSTR] LD E,(HL)\n");
+      ++*pc;
+      break;
+    case 0x5F:  // LD E,A
+      // op
+      reg->E = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD E,A\n");
+      ++*pc;
+      break;
+    case 0x60:  // LD H,B
+      // op
+      reg->H = reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,B\n");
+      ++*pc;
+      break;
+    case 0x61:  // LD H,C
+      // op
+      reg->H = reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,C\n");
+      ++*pc;
+      break;
+    case 0x62:  // LD H,D
+      // op
+      reg->H = reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,D\n");
+      ++*pc;
+      break;
+    case 0x63:  // LD H,E
+      // op
+      reg->H = reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,E\n");
+      ++*pc;
+      break;
+    case 0x64:  // LD H,H
+      // op
+      reg->H = reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,H\n");
+      ++*pc;
+      break;
+    case 0x65:  // LD H,L
+      // op
+      reg->H = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,L\n");
+      ++*pc;
+      break;
+    case 0x66:  // LD H,(HL)
+      // op
+      reg->H = ram[HL];
+      // done
+      DEBUG_PRINT("[INSTR] LD H,(HL)\n");
+      ++*pc;
+      break;
+    case 0x67:  // LD H,A
+      // op
+      reg->H = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD H,A\n");
+      ++*pc;
+      break;
+    case 0x68:  // LD L,B
+      // op
+      reg->L = reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,B\n");
+      ++*pc;
+      break;
+    case 0x69:  // LD L,C
+      // op
+      reg->L = reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,C\n");
+      ++*pc;
+      break;
+    case 0x6A:  // LD L,D
+      // op
+      reg->L = reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,D\n");
+      ++*pc;
+      break;
+    case 0x6B:  // LD L,E
+      // op
+      reg->L = reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,E\n");
+      ++*pc;
+      break;
+    case 0x6C:  // LD L,H
+      // op
+      reg->L = reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,H\n");
+      ++*pc;
+      break;
+    case 0x6D:  // LD L,L
+      // op
+      reg->L = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,L\n");
+      ++*pc;
+      break;
+    case 0x6E:  // LD L,(HL)
+      // op
+      reg->L = ram[HL];
+      // done
+      DEBUG_PRINT("[INSTR] LD L,(HL)\n");
+      ++*pc;
+      break;
+    case 0x6F:  // LD L,A
+      // op
+      reg->L = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD L,A\n");
+      ++*pc;
+      break;
+    case 0x70:  // LD (HL),B
+      // op
+      ram[HL] = reg->B;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),B\n");
+      break;
+    case 0x71:  // LD (HL),C
+      // op
+      ram[HL] = reg->C;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),C\n");
+      break;
+    case 0x72:  // LD (HL),D
+      // op
+      ram[HL] = reg->D;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),D\n");
+      break;
+    case 0x73:  // LD (HL),E
+      // op
+      ram[HL] = reg->E;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),E\n");
+      break;
+    case 0x74:  // LD (HL),H
+      // op
+      ram[HL] = reg->H;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),H\n");
+      break;
+    case 0x75:  // LD (HL),L
+      // op
+      ram[HL] = reg->L;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),L\n");
+      break;
+    case 0x76:  // HALT
+      // op
+      flag->HLT = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] HALT\n");
+      break;
+    case 0x77:  // LD (HL),A
+      // op
+      ram[HL] = reg->A;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD (HL),A\n");
+      break;
+    case 0x78:  // LD A,B
+      // op
+      reg->A = reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,B\n");
+      ++*pc;
+      break;
+    case 0x79:  // LD A,C
+      // op
+      reg->A = reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,C\n");
+      ++*pc;
+      break;
+    case 0x7A:  // LD A,D
+      // op
+      reg->A = reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,D\n");
+      ++*pc;
+      break;
+    case 0x7B:  // LD A,E
+      // op
+      reg->A = reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,E\n");
+      ++*pc;
+      break;
+    case 0x7C:  // LD A,H
+      // op
+      reg->A = reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,H\n");
+      ++*pc;
+      break;
+    case 0x7D:  // LD A,L
+      // op
+      reg->A = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] LD A,L\n");
+      ++*pc;
+      break;
+    case 0x80:  // ADD A,B
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->B) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->B & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->B;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,B\n");
+      ++*pc;
+      break;
+    }
+    case 0x81:  // ADD A,C
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->C) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->C & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->C;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,C\n");
+      ++*pc;
+      break;
+    }
+    case 0x82:  // ADD A,D
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->D) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->D & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->D;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,D\n");
+      ++*pc;
+      break;
+    }
+    case 0x83:  // ADD A,E
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->E) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->E & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->E;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,E\n");
+      ++*pc;
+      break;
+    }
+    case 0x84:  // ADD A,H
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->H) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->H & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->H;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,H\n");
+      ++*pc;
+      break;
+    }
+    case 0x85:  // ADD A,L
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->L) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->L & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->L;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,L\n");
+      ++*pc;
+      break;
+    }
+    case 0x87:  // ADD A,A
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)reg->A + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if (((reg->A & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      if (!reg->A) flag->Z = 1;
+
+      reg->A += reg->A;
+      flag->Z = (!reg->A);
+      // done
+      DEBUG_PRINT("[INSTR] ADD A,A\n");
+      ++*pc;
+      break;
+    }
+    case 0x88:  // ADC A,B
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->B) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->B) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->B + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,B A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x89:  // ADC A,C
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->C) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->C) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->C + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,C A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x8A:  // ADC A,D
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->D) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->D) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->D + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,D A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x8B:  // ADC A,E
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->E) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->E) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->E + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,E A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x8C:  // ADC A,H
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->H) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->H) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->H + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,H A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x8D:  // ADC A,L
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->L) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->L) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->L + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,L A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x8F:  // ADC A,A
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      if (((uint16_t)(flag->C + reg->A) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + reg->A) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += reg->A + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,A A=%02X C=%02X\n", reg->A, flag->C);
+      ++*pc;
+      break;
+    }
+    case 0x90:  // SUB A,B
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->B;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,B\n");
+      ++*pc;
+      break;
+    case 0x91:  // SUB A,C
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->C;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,C\n");
+      ++*pc;
+      break;
+    case 0x92:  // SUB A,D
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->D;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,D\n");
+      ++*pc;
+      break;
+    case 0x93:  // SUB A,E
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->E;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,E\n");
+      ++*pc;
+      break;
+    case 0x94:  // SUB A,H
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->H;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,H\n");
+      ++*pc;
+      break;
+    case 0x95:  // SUB A,L
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,L\n");
+      ++*pc;
+      break;
+    case 0x97:  // SUB A,A
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,A\n");
+      ++*pc;
+      break;
+    case 0x98:  // SBC A,B
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->B + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,B\n");
+      ++*pc;
+      break;
+    case 0x99:  // SBC A,C
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->C + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,C\n");
+      ++*pc;
+      break;
+    case 0x9A:  // SBC A,D
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->D + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,D\n");
+      ++*pc;
+      break;
+    case 0x9B:  // SBC A,E
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->E + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,E\n");
+      ++*pc;
+      break;
+    case 0x9C:  // SBC A,H
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->H + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,H\n");
+      ++*pc;
+      break;
+    case 0x9D:  // SBC A,L
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->L + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,L\n");
+      ++*pc;
+      break;
+    case 0x9E:  // SBC A,(HL)
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (ram[HL] + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,(HL)\n");
+      ++*pc;
+      break;
+    case 0x9F:  // SBC A,A
+      // flags
+      flag->N = 1;
+      // op
+      reg->A -= (reg->A + flag->C);
+      // done
+      DEBUG_PRINT("[INSTR] SBC A,A\n");
+      ++*pc;
+      break;
+    case 0xA0:  // AND A,B
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->B;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,B\n");
+      ++*pc;
+      break;
+    case 0xA1:  // AND A,C
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->C;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,C\n");
+      ++*pc;
+      break;
+    case 0xA2:  // AND A,D
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->D;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,D\n");
+      ++*pc;
+      break;
+    case 0xA3:  // AND A,E
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->E;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,E\n");
+      ++*pc;
+      break;
+    case 0xA4:  // AND A,H
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->H;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,H\n");
+      ++*pc;
+      break;
+    case 0xA5:  // AND A,L
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->L;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,L\n");
+      ++*pc;
+      break;
+    case 0xA7:  // AND A,A
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & reg->A;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,A\n");
+      ++*pc;
+      break;
+    case 0xA8:  // XOR A,B
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->B;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,B\n");
+      break;
+    case 0xA9:  // XOR A,C
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->C;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,C\n");
+      break;
+    case 0xAA:  // XOR A,D
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->D;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,D\n");
+      break;
+    case 0xAB:  // XOR A,E
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->E;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,E\n");
+      break;
+    case 0xAC:  // XOR A,H
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->H;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,H\n");
+      break;
+    case 0xAD:  // XOR A,L
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->L;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,L\n");
+      break;
+    case 0xAF:  // XOR A,A
+      // flag
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      //  op
+      reg->A ^= reg->A;
+      if (reg->A == 0) flag->Z = 1;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] XOR A,A\n");
+      break;
+    case 0xB0:  // OR A,B
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->B;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,B\n");
+      ++*pc;
+      break;
+    case 0xB1:  // OR A,C
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->C;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,C\n");
+      ++*pc;
+      break;
+    case 0xB2:  // OR A,D
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->D;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,D\n");
+      ++*pc;
+      break;
+    case 0xB3:  // OR A,E
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->E;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,E\n");
+      ++*pc;
+      break;
+    case 0xB4:  // OR A,H
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->H;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,H\n");
+      ++*pc;
+      break;
+    case 0xB5:  // OR A,L
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->L;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,L\n");
+      ++*pc;
+      break;
+    case 0xB7:  // OR A,A
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      reg->A = reg->A | reg->A;
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,A\n");
+      ++*pc;
+      break;
+    case 0xB8:  // CP A,B
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      if (reg->A == reg->B) {
+        flag->Z = 1;
+      } else if (reg->A < reg->B) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A,B\n");
+      ++*pc;
+      break;
+    }
+    case 0xB9:  // CP A,C
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      if (reg->A == reg->C) {
+        flag->Z = 1;
+      } else if (reg->A < reg->C) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A,C\n");
+      ++*pc;
+      break;
+    }
+    case 0xBA:  // CP A,D
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      if (reg->A == reg->D) {
+        flag->Z = 1;
+      } else if (reg->A < reg->D) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A,D\n");
+      ++*pc;
+      break;
+    }
+    case 0xBB:  // CP A,E
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      if (reg->A == reg->E) {
+        flag->Z = 1;
+      } else if (reg->A < reg->E) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A,E\n");
+      ++*pc;
+      break;
+    }
+    case 0xBC:  // CP A,H
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      if (reg->A == reg->H) {
+        flag->Z = 1;
+      } else if (reg->A < reg->H) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A,H\n");
+      ++*pc;
+      break;
+    }
+    case 0xBD:  // CP A,L
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      if (reg->A == reg->L) {
+        flag->Z = 1;
+      } else if (reg->A < reg->L) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A,L\n");
+      ++*pc;
+      break;
+    }
+    case 0xBF:  // CP A,A
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op not neded
+      // done
+      DEBUG_PRINT("[INSTR] CP A,A\n");
+      ++*pc;
+      break;
+    }
+    case 0xBE:  // CP A,(HL)
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      uint8_t u8 = ram[HL];
+      if (reg->A == u8) {
+        flag->Z = 1;
+      } else if (reg->A < u8) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A, (HL)\n");
+      ++*pc;
+      break;
+    }
+    case 0xC1:  // POP BC
+      // op
+      reg->C = ram[++*sp];
+      reg->B = ram[++*sp];
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] POP BC => BC=%04X\n", BC);
+      break;
+    case 0xC2:  // JP NZ,u16
+    {
+      // op
+      uint16_t offset = memory[*pc + 1] | memory[*pc + 2] << 010;
+      *pc += 2;
+      if (!flag->Z) {
+        *pc = offset;
+      }
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JP NZ,$%04X pc=%04X %s\n", offset, *pc,
+                  !flag->Z ? "JMP" : "CONTINUE");
+      break;
+    }
+    case 0xC3:  // JP u16
+    {
+      // op
+      uint16_t offset = memory[*pc + 1] | memory[*pc + 2] << 010;
+      *pc += 2;
+      *pc = offset;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JP $%04X pc=%04X\n", offset, *pc);
+      break;
+    }
+    case 0xC5:  // PUSH BC
+      // op
+      ram[(*sp)--] = reg->B;
+      ram[(*sp)--] = reg->C;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] PUSH BC => BC=%04X\n", BC);
+      break;
+    case 0xC9:  // RET
+      // op
+      *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+      *sp += 2;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] RET\n");
+      break;
+    case 0xCA:  // JP Z,u16
+    {
+      // op
+      uint16_t offset = memory[*pc + 1] | memory[*pc + 2] << 010;
+      *pc += 2;
+      if (flag->Z) {
+        *pc = offset;
+      }
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JP Z,$%04X pc=%04X %s\n", offset, *pc,
+                  flag->Z ? "JMP" : "CONTINUE");
+      break;
+    }
+    case 0XCB:  // PREFIX - extended opcodes
+      opcode = memory[++*pc];
+      switch (opcode) {
+        case 0x11:  // RL C
+          // flag
+          flag->N = 0;
+          flag->H = 0;
+          flag->Z = 0;
+          flag->C = reg->C & 0x80;  // old bit #7
+          // op
+          reg->C = reg->C << 1 | (flag->C > 0);
+          if (!reg->C) flag->Z = 1;
+          // done
+          DEBUG_PRINT("[INSTR] RL C\n");
+          ++*pc;
+          break;
+        case 0x37:  // SWAP A
+          // flags
+          flag->Z = 0;
+          flag->N = 0;
+          flag->H = 0;
+          flag->C = 0;
+          // op
+          reg->A = ((reg->A) >> 4) | ((reg->A & 0xF) << 4);
+          if (!reg->A) flag->Z = 1;
+          // done
+          DEBUG_PRINT("[INSTR] SWAP A\n");
+          ++*pc;
+          break;
+        case 0x3F:  // SRL A
+        {
+          // flag
+          flag->Z = 0;
+          flag->N = 0;
+          flag->H = 0;
+          flag->C = reg->A & 1;  // rightshift to align carried bit
+          // op
+          uint8_t u8 = memory[++*pc];
+          reg->A =
+              reg->A << (u8 + 1);  // shift n times and once more to clear MSB
+          reg->A = reg->A >> 1;    // shift cleared MSB
+          if (reg->A) flag->Z = 1;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SRL A\n");
+          break;
+        }
+        case 0x42:  // BIT 0,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & 1)) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 0,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x43:  // BIT 0,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & 1)) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 0,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x44:  // BIT 0,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & 1)) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 0,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x45:  // BIT 0,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & 1)) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 0,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x47:  // BIT 0,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & 1)) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 0,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x48:  // BIT 1,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x49:  // BIT 1,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x4A:  // BIT 1,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x4B:  // BIT 1,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x4C:  // BIT 1,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x4D:  // BIT 1,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x4F:  // BIT 1,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 1))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 1,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x50:  // BIT 2,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x51:  // BIT 2,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x52:  // BIT 2,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x53:  // BIT 2,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x54:  // BIT 2,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x55:  // BIT 2,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x57:  // BIT 2,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 2))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 2,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x58:  // BIT 3,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x59:  // BIT 3,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x5A:  // BIT 3,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x5B:  // BIT 3,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x5C:  // BIT 3,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x5D:  // BIT 3,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x5F:  // BIT 3,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 3))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 3,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x60:  // BIT 4,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x61:  // BIT 4,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x62:  // BIT 4,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x63:  // BIT 4,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x64:  // BIT 4,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x65:  // BIT 4,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x67:  // BIT 4,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 4))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 4,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x68:  // BIT 5,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x69:  // BIT 5,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x6A:  // BIT 5,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x6B:  // BIT 5,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x6C:  // BIT 5,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x6D:  // BIT 5,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x6F:  // BIT 5,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 5))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 5,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x70:  // BIT 6,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x71:  // BIT 6,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x72:  // BIT 6,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x73:  // BIT 6,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x74:  // BIT 6,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x75:  // BIT 6,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x77:  // BIT 6,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 6))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 6,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x78:  // BIT 7,B
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->B & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,B B=%02X Z=%d\n", reg->B, flag->Z);
+          break;
+        case 0x79:  // BIT 7,C
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->C & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,C C=%02X Z=%d\n", reg->C, flag->Z);
+          break;
+        case 0x7A:  // BIT 7,D
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->D & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,D D=%02X Z=%d\n", reg->D, flag->Z);
+          break;
+        case 0x7B:  // BIT 7,E
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->E & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,E E=%02X Z=%d\n", reg->E, flag->Z);
+          break;
+        case 0x7C:  // BIT 7,H
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->H & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,H H=%02X Z=%d\n", reg->H, flag->Z);
+          break;
+        case 0x7D:  // BIT 7,L
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->L & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,L L=%02X Z=%d\n", reg->L, flag->Z);
+          break;
+        case 0x7F:  // BIT 7,A
+          // flags
+          flag->N = 0;
+          flag->H = 1;
+          flag->Z = 0;
+          // op
+          if (!(reg->A & (1 << 7))) {
+            flag->Z = 1;
+          }
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] BIT 7,A A=%02X Z=%d\n", reg->A, flag->Z);
+          break;
+        case 0x80:  // RES 0,B
+          // op
+          reg->B = reg->B & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,B\n");
+          break;
+        case 0x81:  // RES 0,C
+          // op
+          reg->C = reg->C & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,C\n");
+          break;
+        case 0x82:  // RES 0,D
+          // op
+          reg->D = reg->D & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,D\n");
+          break;
+        case 0x83:  // RES 0,E
+          // op
+          reg->E = reg->E & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,E\n");
+          break;
+        case 0x84:  // RES 0,H
+          // op
+          reg->H = reg->H & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,H\n");
+          break;
+        case 0x85:  // RES 0,L
+          // op
+          reg->L = reg->L & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,L\n");
+          break;
+        case 0x87:  // RES 0,A
+          // op
+          reg->A = reg->A & 0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 0,A\n");
+          break;
+        case 0x88:  // RES 1,B
+          // op
+          reg->B = reg->B & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,B\n");
+          break;
+        case 0x89:  // RES 1,C
+          // op
+          reg->C = reg->C & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,C\n");
+          break;
+        case 0x8A:  // RES 1,D
+          // op
+          reg->D = reg->D & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,D\n");
+          break;
+        case 0x8B:  // RES 1,E
+          // op
+          reg->E = reg->E & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,E\n");
+          break;
+        case 0x8C:  // RES 1,H
+          // op
+          reg->H = reg->H & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,H\n");
+          break;
+        case 0x8D:  // RES 1,L
+          // op
+          reg->L = reg->L & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,L\n");
+          break;
+        case 0x8F:  // RES 1,A
+          // op
+          reg->A = reg->A & 0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 1,A\n");
+          break;
+        case 0x90:  // RES 2,B
+          // op
+          reg->B = reg->B & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,B\n");
+          break;
+        case 0x91:  // RES 2,C
+          // op
+          reg->C = reg->C & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,C\n");
+          break;
+        case 0x92:  // RES 2,D
+          // op
+          reg->D = reg->D & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,D\n");
+          break;
+        case 0x93:  // RES 2,E
+          // op
+          reg->E = reg->E & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,E\n");
+          break;
+        case 0x94:  // RES 2,H
+          // op
+          reg->H = reg->H & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,H\n");
+          break;
+        case 0x95:  // RES 2,L
+          // op
+          reg->L = reg->L & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,L\n");
+          break;
+        case 0x97:  // RES 2,A
+          // op
+          reg->A = reg->A & 0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 2,A\n");
+          break;
+        case 0x98:  // RES 3,B
+          // op
+          reg->B = reg->B & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,B\n");
+          break;
+        case 0x99:  // RES 3,C
+          // op
+          reg->C = reg->C & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,C\n");
+          break;
+        case 0x9A:  // RES 3,D
+          // op
+          reg->D = reg->D & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,D\n");
+          break;
+        case 0x9B:  // RES 3,E
+          // op
+          reg->E = reg->E & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,E\n");
+          break;
+        case 0x9C:  // RES 3,H
+          // op
+          reg->H = reg->H & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,H\n");
+          break;
+        case 0x9D:  // RES 3,L
+          // op
+          reg->L = reg->L & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,L\n");
+          break;
+        case 0x9F:  // RES 3,A
+          // op
+          reg->A = reg->A & 0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 3,A\n");
+          break;
+        case 0xA0:  // RES 4,B
+          // op
+          reg->B = reg->B & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,B\n");
+          break;
+        case 0xA1:  // RES 4,C
+          // op
+          reg->C = reg->C & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,C\n");
+          break;
+        case 0xA2:  // RES 4,D
+          // op
+          reg->D = reg->D & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,D\n");
+          break;
+        case 0xA3:  // RES 4,E
+          // op
+          reg->E = reg->E & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,E\n");
+          break;
+        case 0xA4:  // RES 4,H
+          // op
+          reg->H = reg->H & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,H\n");
+          break;
+        case 0xA5:  // RES 4,L
+          // op
+          reg->L = reg->L & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,L\n");
+          break;
+        case 0xA7:  // RES 4,A
+          // op
+          reg->A = reg->A & 0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 4,A\n");
+          break;
+        case 0xA8:  // RES 5,B
+          // op
+          reg->B = reg->B & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,B\n");
+          break;
+        case 0xA9:  // RES 5,C
+          // op
+          reg->C = reg->C & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,C\n");
+          break;
+        case 0xAA:  // RES 5,D
+          // op
+          reg->D = reg->D & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,D\n");
+          break;
+        case 0xAB:  // RES 5,E
+          // op
+          reg->E = reg->E & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,E\n");
+          break;
+        case 0xAC:  // RES 5,H
+          // op
+          reg->H = reg->H & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,H\n");
+          break;
+        case 0xAD:  // RES 5,L
+          // op
+          reg->L = reg->L & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,L\n");
+          break;
+        case 0xAF:  // RES 5,A
+          // op
+          reg->A = reg->A & 0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 5,A\n");
+          break;
+        case 0xB0:  // RES 6,B
+          // op
+          reg->B = reg->B & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,B\n");
+          break;
+        case 0xB1:  // RES 6,C
+          // op
+          reg->C = reg->C & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,C\n");
+          break;
+        case 0xB2:  // RES 6,D
+          // op
+          reg->D = reg->D & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,D\n");
+          break;
+        case 0xB3:  // RES 6,E
+          // op
+          reg->E = reg->E & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,E\n");
+          break;
+        case 0xB4:  // RES 6,H
+          // op
+          reg->H = reg->H & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,H\n");
+          break;
+        case 0xB5:  // RES 6,L
+          // op
+          reg->L = reg->L & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,L\n");
+          break;
+        case 0xB7:  // RES 6,A
+          // op
+          reg->A = reg->A & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 6,A\n");
+          break;
+        case 0xB8:  // RES 7,B
+          // op
+          reg->B = reg->B & 0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,B\n");
+          break;
+        case 0xB9:  // RES 7,C
+          // op
+          reg->C = reg->C & 0x7D;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,C\n");
+          break;
+        case 0xBA:  // RES 7,D
+          // op
+          reg->D = reg->D & 0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,D\n");
+          break;
+        case 0xBB:  // RES 7,E
+          // op
+          reg->E = reg->E & 0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,E\n");
+          break;
+        case 0xBC:  // RES 7,H
+          // op
+          reg->H = reg->H & 0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,H\n");
+          break;
+        case 0xBD:  // RES 7,L
+          // op
+          reg->L = reg->L & 0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,L\n");
+          break;
+        case 0xBF:  // RES 7,A
+          // op
+          reg->A = reg->A & 0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] RES 7,A\n");
+          break;
+        case 0xC0:  // SET 0,B
+          // op
+          reg->B = reg->B | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,B\n");
+          break;
+        case 0xC1:  // SET 0,C
+          // op
+          reg->C = reg->C | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,C\n");
+          break;
+        case 0xC2:  // SET 0,D
+          // op
+          reg->D = reg->D | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,D\n");
+          break;
+        case 0xC3:  // SET 0,E
+          // op
+          reg->E = reg->E | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,E\n");
+          break;
+        case 0xC4:  // SET 0,H
+          // op
+          reg->H = reg->H | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,H\n");
+          break;
+        case 0xC5:  // SET 0,L
+          // op
+          reg->L = reg->L | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,L\n");
+          break;
+        case 0xC7:  // SET 0,A
+          // op
+          reg->A = reg->A | ~0xFE;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 0,A\n");
+          break;
+        case 0xC8:  // SET 1,B
+          // op
+          reg->B = reg->B | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,B\n");
+          break;
+        case 0xC9:  // SET 1,C
+          // op
+          reg->C = reg->C | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,C\n");
+          break;
+        case 0xCA:  // SET 1,D
+          // op
+          reg->D = reg->D | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,D\n");
+          break;
+        case 0xCB:  // SET 1,E
+          // op
+          reg->E = reg->E | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,E\n");
+          break;
+        case 0xCC:  // SET 1,H
+          // op
+          reg->H = reg->H | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,H\n");
+          break;
+        case 0xCD:  // SET 1,L
+          // op
+          reg->L = reg->L | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,L\n");
+          break;
+        case 0xCF:  // SET 1,A
+          // op
+          reg->A = reg->A | ~0xFD;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 1,A\n");
+          break;
+        case 0xD0:  // SET 2,B
+          // op
+          reg->B = reg->B | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,B\n");
+          break;
+        case 0xD1:  // SET 2,C
+          // op
+          reg->C = reg->C | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,C\n");
+          break;
+        case 0xD2:  // SET 2,D
+          // op
+          reg->D = reg->D | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,D\n");
+          break;
+        case 0xD3:  // SET 2,E
+          // op
+          reg->E = reg->E | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,E\n");
+          break;
+        case 0xD4:  // SET 2,H
+          // op
+          reg->H = reg->H | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,H\n");
+          break;
+        case 0xD5:  // SET 2,L
+          // op
+          reg->L = reg->L | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,L\n");
+          break;
+        case 0xD7:  // SET 2,A
+          // op
+          reg->A = reg->A | ~0xFB;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 2,A\n");
+          break;
+        case 0xD8:  // SET 3,B
+          // op
+          reg->B = reg->B | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,B\n");
+          break;
+        case 0xD9:  // SET 3,C
+          // op
+          reg->C = reg->C | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,C\n");
+          break;
+        case 0xDA:  // SET 3,D
+          // op
+          reg->D = reg->D | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,D\n");
+          break;
+        case 0xDB:  // SET 3,E
+          // op
+          reg->E = reg->E | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,E\n");
+          break;
+        case 0xDC:  // SET 3,H
+          // op
+          reg->H = reg->H | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,H\n");
+          break;
+        case 0xDD:  // SET 3,L
+          // op
+          reg->L = reg->L | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,L\n");
+          break;
+        case 0xDF:  // SET 3,A
+          // op
+          reg->A = reg->A | ~0xF7;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 3,A\n");
+          break;
+        case 0xE0:  // SET 4,B
+          // op
+          reg->B = reg->B | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,B\n");
+          break;
+        case 0xE1:  // SET 4,C
+          // op
+          reg->C = reg->C | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,C\n");
+          break;
+        case 0xE2:  // SET 4,D
+          // op
+          reg->D = reg->D | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,D\n");
+          break;
+        case 0xE3:  // SET 4,E
+          // op
+          reg->E = reg->E | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,E\n");
+          break;
+        case 0xE4:  // SET 4,H
+          // op
+          reg->H = reg->H | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,H\n");
+          break;
+        case 0xE5:  // SET 4,L
+          // op
+          reg->L = reg->L | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,L\n");
+          break;
+        case 0xE7:  // SET 4,A
+          // op
+          reg->A = reg->A | ~0xEF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 4,A\n");
+          break;
+        case 0xE8:  // SET 5,B
+          // op
+          reg->B = reg->B | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,B\n");
+          break;
+        case 0xE9:  // SET 5,C
+          // op
+          reg->C = reg->C | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,C\n");
+          break;
+        case 0xEA:  // SET 5,D
+          // op
+          reg->D = reg->D | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,D\n");
+          break;
+        case 0xEB:  // SET 5,E
+          // op
+          reg->E = reg->E | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,E\n");
+          break;
+        case 0xEC:  // SET 5,H
+          // op
+          reg->H = reg->H | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,H\n");
+          break;
+        case 0xED:  // SET 5,L
+          // op
+          reg->L = reg->L | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,L\n");
+          break;
+        case 0xEF:  // SET 5,A
+          // op
+          reg->A = reg->A | ~0xDF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 5,A\n");
+          break;
+        case 0xF0:  // SET 6,B
+          // op
+          reg->B = reg->B | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,B\n");
+          break;
+        case 0xF1:  // SET 6,C
+          // op
+          reg->C = reg->C | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,C\n");
+          break;
+        case 0xF2:  // SET 6,D
+          // op
+          reg->D = reg->D | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,D\n");
+          break;
+        case 0xF3:  // SET 6,E
+          // op
+          reg->E = reg->E | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,E\n");
+          break;
+        case 0xF4:  // SET 6,H
+          // op
+          reg->H = reg->H | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,H\n");
+          break;
+        case 0xF5:  // SET 6,L
+          // op
+          reg->L = reg->L | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,L\n");
+          break;
+        case 0xF7:  // SET 6,A
+          // op
+          reg->A = reg->A | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 6,A\n");
+          break;
+        case 0xF8:  // SET 7,B
+          // op
+          reg->B = reg->B | ~0xBF;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,B\n");
+          break;
+        case 0xF9:  // SET 7,C
+          // op
+          reg->C = reg->C | ~0x7D;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,C\n");
+          break;
+        case 0xFA:  // SET 7,D
+          // op
+          reg->D = reg->D | ~0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,D\n");
+          break;
+        case 0xFB:  // SET 7,E
+          // op
+          reg->E = reg->E | ~0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,E\n");
+          break;
+        case 0xFC:  // SET 7,H
+          // op
+          reg->H = reg->H | ~0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,H\n");
+          break;
+        case 0xFD:  // SET 7,L
+          // op
+          reg->L = reg->L | ~0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,L\n");
+          break;
+        case 0xFF:  // SET 7,A
+          // op
+          reg->A = reg->A | ~0x7F;
+          // done
+          ++*pc;
+          DEBUG_PRINT("[INSTR] SET 7,A\n");
+          break;
+        default:
+          printf(
+              "[ERROR] %s: Unkown extended instruction 0xCB 0x%02X at "
+              "0x%04hX\n",
+              __func__, opcode, *pc);
+          return CPU_ERROR_UNK_INSTRUCTION;
+      }
+      break;
+    case 0xC8:  // RET Z
+      // op
+      if (flag->Z) {
+        *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+        *sp += 2;
+      }
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] RET Z\n");
+      break;
+    case 0xCD:  // CALL u16
+    {
+      // op
+      uint16_t address = memory[++*pc];
+      address |= memory[++*pc] << 010;
+      ram[(*sp)--] = *pc >> 010;
+      ram[(*sp)--] = *pc & 0xFF;
+      *pc = address;
+      // done
+      DEBUG_PRINT("[INSTR] CALL $%04X\n", *pc);
+      break;
+    }
+    case 0xCE:  // ADC A,u8
+    {
+      // flags
+      flag->Z = 0;
+      flag->N = 0;
+      flag->H = 0;
+      // op
+      uint8_t u8 = memory[++*pc];
+
+      if (((uint16_t)(flag->C + u8) + (short)reg->A) & 0x100)  // C -> bit 7
+        flag->C = 1;
+
+      if ((((flag->C + u8) & 0xF) + (reg->A & 0xF)) & 0x10)  // H -> bit 4
+        flag->H = 1;
+
+      reg->A += u8 + flag->C;
+      // done
+      DEBUG_PRINT("[INSTR] ADC A,$%02X A=%02X C=%02X\n", memory[*pc], reg->A,
+                  flag->C);
+      ++*pc;
+      break;
+    }
+    case 0xD6:  // SUB A,u8
+      // flags
+      flag->Z = 0;
+      flag->N = 1;
+      // op
+      reg->A -= memory[++*pc];
+      // done
+      DEBUG_PRINT("[INSTR] SUB A,%02X\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0xE0:  // LD (FF00+u8),A
+      // op
+      ram[0xFF00 + memory[++*pc]] = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD ($FF00 + $%02X),A\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0xE1:  // POP HL
+      // op
+      reg->L = ram[++*sp];
+      reg->H = ram[++*sp];
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] POP HL => HL=%04X\n", HL);
+      break;
+    case 0xE2:  // LD (FF00+C),A
+      // op
+      ram[0xFF00 + reg->C] = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD (FF00+C),A\n");
+      ++*pc;
+      break;
+    case 0xE5:  // PUSH HL
+      // op
+      ram[(*sp)--] = reg->H;
+      ram[(*sp)--] = reg->L;
+      // done
+      DEBUG_PRINT("[INSTR] PUSH HL\n");
+      ++*pc;
+      break;
+    case 0xE6:  // AND A,u8
+      // flags
+      flag->N = 0;
+      flag->H = 1;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & memory[++*pc];
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] AND A,%02X\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0xE9:  // JP HL
+      // op
+      *pc = HL;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] JP HL => pc=%04X\n", *pc);
+      break;
+    case 0xEA:  // LD (u16),A
+    {
+      // op
+      uint16_t u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
+      ram[u16] = reg->A;
+      // done
+      DEBUG_PRINT("[INSTR] LD (%04X),A\n", u16);
+      *pc += 3;
+      break;
+    }
+    case 0xEF:  // RST 28h
+      // op
+      ram[(*sp)--] = *pc >> 010;
+      ram[(*sp)--] = *pc % 0xFF;
+      *pc = 0x28;
+      // done
+      DEBUG_PRINT("[INSTR] RST 28h\n");
+      break;
+      break;
+    case 0xF0:  // LD A,(FF00+u8)
+      // op
+      reg->A = ram[0xFF00 + memory[++*pc]];
+      // done
+
+      DEBUG_PRINT("[INSTR] LD A,($FF00 + $%02X) A=%02X\n", memory[*pc], reg->A);
+      ++*pc;
+      break;
+    case 0xF1:  // POP AF
+      // op
+      reg->F = ram[++*sp];
+      reg->A = ram[++*sp];
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] POP AF => AF=%04X\n", AF);
+      break;
+    case 0xF2:  // LD A,(FF00+C)
+      // op
+      reg->A = ram[0xFF00 + reg->C];
+      // done
+      DEBUG_PRINT("[INSTR] LD A,($FF00 + C)\n");
+      ++*pc;
+      break;
+    case 0xF3:  // DI
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] DI\n");
+      ram[0xFFFF] = 0;
+      break;
+    case 0xF5:  // PUSH AF
+      // op
+      ram[(*sp)--] = reg->A;
+      ram[(*sp)--] = reg->F;
+      // done
+      DEBUG_PRINT("[INSTR] PUSH AF\n");
+      ++*pc;
+      break;
+    case 0xF6:  // OR A,u8
+      // flags
+      flag->N = 0;
+      flag->H = 0;
+      flag->Z = 0;
+      flag->C = 0;
+      // op
+      reg->A = reg->A & memory[++*pc];
+      if (!reg->A) flag->Z = 1;
+      // done
+      DEBUG_PRINT("[INSTR] OR A,%02X\n", memory[*pc]);
+      ++*pc;
+      break;
+    case 0xF8:  // LD HL,SP+i8
+    {
+      // op
+      uint16_t u16 = *sp + (char)memory[++*pc];
+      reg->H = u16 >> 010;
+      reg->L = u16 & 0xFF;
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] LD HL,$%04X\n", HL);
+      break;
+    }
+    case 0xF9:  // LD SP,HL
+      // op
+      *sp = HL;
+      // done
+      DEBUG_PRINT("[INSTR] LD SP,HL -> SP=%04X\n", *sp);
+      ++*pc;
+      break;
+    case 0xFA:  // LD A,(u16)
+    {
+      // op
+      uint16_t u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
+      reg->A = ram[u16];
+      // done
+      DEBUG_PRINT("[INSTR] LD A,(%04X)\n", u16);
+      *pc += 3;
+      break;
+    }
+    case 0xFB:  // EI
+      // done
+      ++*pc;
+      DEBUG_PRINT("[INSTR] EI\n");
+      ram[0xFFFF] = 1;
+      break;
+    case 0xFC:  // UNDEFINED
+      // done
+      printf("[WARNING] calling unusded instruction FC\n");
+      ++*pc;
+      break;
+    case 0xFE:  // CP A,(u8)
+    {
+      // flag
+      flag->N = 1;
+      flag->C = 0;
+      flag->Z = 0;
+      // op
+      uint8_t u8 = memory[++*pc];
+      if (reg->A == u8) {
+        flag->Z = 1;
+      } else if (reg->A < u8) {
+        flag->C = 1;
+      }
+      // done
+      DEBUG_PRINT("[INSTR] CP A, $%02X\n", u8);
+      ++*pc;
+      break;
+    }
+    default:
+      printf("[ERROR] %s: Unkown instruction 0x%02X at 0x%04hX\n", __func__,
+             opcode, *pc);
+      return CPU_ERROR_UNK_INSTRUCTION;
+  };
+
+  return CPU_OK;
+}
+
+void OldDebugReadBlarggsSerial(uint8_t *ram) {
+  if (ram[0xFF02] == 0x81) {  // IO busy
+    char c = ram[0xFF01];     // read data
+    printf("%c", c);
+    ram[0xFF02] = 0x0;  // IO done
+  }
+}
+
+void OldPrintBinary8(uint8_t u8) {
+  printf("%d", (u8 & (1 << 7)) != 0);
+  printf("%d", (u8 & (1 << 6)) != 0);
+  printf("%d", (u8 & (1 << 5)) != 0);
+  printf("%d", (u8 & (1 << 4)) != 0);
+  printf("%d", (u8 & (1 << 3)) != 0);
+  printf("%d", (u8 & (1 << 2)) != 0);
+  printf("%d", (u8 & (1 << 1)) != 0);
+  printf("%d ", (u8 & (1 << 0)) != 0);
+}

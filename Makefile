@@ -10,7 +10,7 @@ DEPS := $(OBJS:.o=.d)
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -Wall -Wpedantic -Werror
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -Wall -Wpedantic -Werror -std=c99 -O2
 
 LDFLAGS ?= -lX11 -L./lib -lminifb -lX11 -lGL
 

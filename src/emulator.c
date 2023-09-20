@@ -1,61 +1,39 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
 #include "boot.h"
 #include "cpu.h"
-#include "emulator_types.h"
-// #include "window.h"
 
-int main()
-{
-	printf("Launched\n");
+int main() {
+  printf("Launched\n");
 
-	BYTE memory[0x100];
-	BootLoadRom(memory);
+  // ROM
+  // uint8_t rom[0x100];
+  // BootLoadRom(rom);
 
-	// struct mfb_window* window = mfb_open("Noise Test", g_width, g_height);
-	//  WinInit(window);
+  // TEST
+  uint8_t rom[0x10000];
+  BootLoadTestRom(rom, "test/cpu_instrs.gb");
 
-	struct timespec timer;
-	// long nsecsA, nsecsB;
+  // CPU
+  uint8_t ram[0x10000];  // $0000-$FFFF
+  memset(ram, 0x00, 0x10000);
+  uint8_t cycles;
 
-	BYTE ram[0x10000]; // $0000-$FFFF
-	memset(ram, 0x00, 0x10000);
+  unsigned short pc = 0x100, sp;
+  struct Registers reg = {
+      .a = 0, .b = 0, .c = 0, .d = 0, .e = 0, .f = 0, .h = 0, .l = 0};
+  bool hlt = false;
 
-	unsigned short pc, sp;
-	struct Registers reg = {
-		.A = 0,
-		.B = 0,
-		.C = 0,
-		.D = 0,
-		.E = 0,
-		.F = 0,
-		.H = 0,
-		.L = 0
-	};
+  while (1) {
+    if (!hlt) {
+      if (CpuStep(rom, ram, &pc, &sp, &reg, &hlt, &cycles) != CPU_OK) break;
+      DebugReadBlarggsSerial(ram);
+    }
+  }
 
-	struct Flags flag = {
-		.Z = 0,
-		.N = 0,
-		.H = 0,
-		.C = 0,
-		.HLT = false
-	};
-
-	clock_gettime(CLOCK_REALTIME, &timer);
-	while (!flag.HLT) {
-
-		// nsecsA = timer.tv_nsec;
-		clock_gettime(CLOCK_REALTIME, &timer);
-		if (CpuStep(memory, ram, &pc, &sp, &reg, &flag) != CPU_OK)
-			break;
-		// if (WinUpdate(window, (BYTE*)(ram + 0x8000)) || !mfb_wait_sync(window))
-		// break;
-		// nsecsB = timer.tv_nsec;
-		//  printf("diff: %ldns\n", nsecsB - nsecsA);
-		clock_gettime(CLOCK_REALTIME, &timer);
-	}
-
-	return 0;
+  return 0;
 }

@@ -1,27 +1,31 @@
 #include "boot.h"
 
-int BootLoadRom(BYTE* memory)
-{
-	const char* BootRomPath = "boot/DMG_ROM.bin";
+int BootLoadRom(uint8_t* memory) {
+  const char* BootRomPath = "boot/DMG_ROM.bin";
+  return BootLoadTestRom(memory, BootRomPath);
+}
 
-	if (!memory) {
-		printf("[ERROR] %s: no allocated memory for\n", __func__);
-		return BOOT_ERROR_MEMORY;
-	}
+int BootLoadTestRom(uint8_t* memory, const char* fileName) {
+  const char* BootRomPath = fileName;
 
-	FILE* file = fopen(BootRomPath, "rb");
+  if (!memory) {
+    printf("[ERROR] %s: no allocated memory for\n", __func__);
+    return BOOT_ERROR_MEMORY;
+  }
 
-	if (!file) {
-		printf("[ERROR] %s: file %s not found!\n", __func__, BootRomPath);
-		return BOOT_ERROR_FILE;
-	}
+  FILE* file = fopen(BootRomPath, "rb");
 
-	int readpos = 0;
+  if (!file) {
+    printf("[ERROR] %s: file %s not found!\n", __func__, BootRomPath);
+    return BOOT_ERROR_FILE;
+  }
 
-	while (fread(&memory[readpos++], 1, 1, file))
-		;
+  int readpos = 0;
 
-	fclose(file);
+  while (fread(&memory[readpos++], 1, 1, file))
+    ;
 
-	return BOOT_OK;
+  fclose(file);
+
+  return BOOT_OK;
 }
