@@ -9,11 +9,19 @@
 #define WIN_OK 0
 #define WIN_ERROR_CLOSE 1
 
-static uint32_t g_width = 160;
-static uint32_t g_height = 144;
+#define WIDTH 160
+#define HEIGHT 144
+
+struct tile {
+  int8_t ID;
+  uint8_t pixels[16 * 16];  // 0-3 pixel color
+  // TODO: palette;
+};
 
 int WinInit(struct mfb_window* window);
-int WinUpdate(struct mfb_window* window, uint8_t* framebuffer);
+int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram);
+
+void TileToPixels(struct tile, uint32_t* buffer);
 
 /*-----+------------+
 | 0b11 | white      |

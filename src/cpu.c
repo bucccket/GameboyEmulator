@@ -1,6 +1,7 @@
 #include "cpu.h"
 
 #include <stdint.h>
+#include <stdio.h>
 
 // R  - 8 bit Register
 // RR - 16 bit Register
@@ -10,9 +11,21 @@
 // 00h - hexadecimal number literal
 
 int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
-            struct Registers *reg, bool *hlt, uint8_t *cycles) {
-  DEBUG_PRINT("$%04X \t", *pc);
+            struct Registers *reg, bool *hlt, uint8_t *cycles, bool *IME) {
+  DEBUG_PRINT(
+      "A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X "
+      "%c%c%c%c\n",
+      A, F, B, C, D, E, H, L, GET_Z ? 'Z' : '_', GET_N ? 'N' : '_',
+      GET_H ? 'H' : '_', GET_C ? 'C' : '_');
+  // getchar();
+  printf("\r$%04X:%02X      ", *pc, memory[*pc]);
+  fflush(stdout);
+  DEBUG_PRINT("$%04X:%02X \t", *pc, memory[*pc]);
   uint8_t opcode = memory[*pc];
+  if (*sp == 0x0) {
+    printf("[ERROR] SP underflowing\n");
+    return CPU_ERROR_FAULT;
+  }
   switch (opcode) {
     case 0x00:  // NOP
       DEBUG_PRINT("[INSTR] NOP\n");
@@ -489,11 +502,15 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       *cycles = 8;
       break;
     case 0xEA:  // LD (u16), A
-      ram[memory[++*pc]] = A;
-      DEBUG_PRINT("[INSTR] LD (u16), A\n");
+    {
+      uint16_t u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
+      *pc += 2;
+      ram[u16] = A;
+      DEBUG_PRINT("[INSTR] LD ($%04X), A\n", memory[*pc]);
       ++*pc;
       *cycles = 16;
       break;
+    }
 
     case 0xF2:  // LD A, (FF00 + C)
       A = ram[0xFF00 + C];
@@ -554,13 +571,13 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       break;
     }
 
-    case 0xE0:  // LD A, (FF00 + u8)
+    case 0xF0:  // LD A, (FF00 + u8)
       A = ram[0xFF00 + memory[++*pc]];
       DEBUG_PRINT("[INSTR] LD A, (FF00 + $%02X)\n", memory[*pc]);
       ++*pc;
       *cycles = 12;
       break;
-    case 0xF0:  // LD (FF00 + u8), A
+    case 0xE0:  // LD (FF00 + u8), A
       ram[0xFF00 + memory[++*pc]] = A;
       DEBUG_PRINT("[INSTR] LD (FF00 + $%02X), A\n", memory[*pc]);
       ++*pc;
@@ -1866,26 +1883,28 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
 
     case 0x76:  // HALT
       *hlt = true;
-      DEBUG_PRINT("[INSTR] HALT\n");
+      printf("[INFO] HALT\n");
       ++*pc;
       *cycles = 4;
       break;
 
     case 0x10:  // STOP
       *hlt = true;
-      DEBUG_PRINT("[INSTR] STOP\n");
+      printf("[INFO] STOP\n");
       *pc += 2;  //??
       *cycles = 4;
       break;
 
     case 0xF3:  // DI
-      DEBUG_PRINT("[ERROR] DI NOT IMPLEMENTED");
+      *IME = false;
+      DEBUG_PRINT("[INSTR] DI\n");
       ++*pc;
       *cycles = 4;
       break;
 
     case 0xFB:  // EI
-      DEBUG_PRINT("[ERROR] EI NOT IMPLEMENTED");
+      *IME = true;
+      DEBUG_PRINT("[INSTR] EI\n");
       ++*pc;
       *cycles = 4;
       break;
@@ -1945,43 +1964,55 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
      *-------*/
     case 0xC3:  // JP u16
       *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
-      ++*pc;
+      //++*pc;
       DEBUG_PRINT("[INSTR] JP $%04X\n", *pc);
       *cycles = 16;
       break;
 
     case 0xC2:  // JP NZ, u16
-      if (!GET_Z) *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
-      ++*pc;
+      if (!GET_Z)
+        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+      else
+        *pc += 3;
+      //++*pc;
       DEBUG_PRINT("[INSTR] JP NZ, $%04X\n",
                   memory[*pc] | memory[*pc + 1] << 010);
       *cycles = 12;
       break;
     case 0xCA:  // JP Z, u16
-      if (GET_Z) *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
-      ++*pc;
+      if (GET_Z)
+        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+      else
+        *pc += 3;
+      //++*pc;
       DEBUG_PRINT("[INSTR] JP Z, $%04X\n",
                   memory[*pc] | memory[*pc + 1] << 010);
       *cycles = 12;
       break;
     case 0xD2:  // JP NC, u16
-      if (!GET_C) *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
-      ++*pc;
+      if (!GET_C)
+        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+      else
+        *pc += 3;
+      //++*pc;
       DEBUG_PRINT("[INSTR] JP NC, $%04X\n",
                   memory[*pc] | memory[*pc + 1] << 010);
       *cycles = 12;
       break;
     case 0xDA:  // JP C, u16
-      if (GET_C) *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
-      ++*pc;
+      if (GET_C)
+        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+      else
+        *pc += 3;
+      //++*pc;
       DEBUG_PRINT("[INSTR] JP C, $%04X\n",
                   memory[*pc] | memory[*pc + 1] << 010);
       *cycles = 12;
       break;
 
     case 0xE9:  // JP (HL)
-      *pc = ram[HL];
-      ++*pc;
+      *pc = HL;
+      //++*pc;
       DEBUG_PRINT("[INSTR] JP (HL)\n");
       *cycles = 4;
       break;
@@ -2220,8 +2251,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xD9:  // RETI
       *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
       *sp += 2;
+      *IME = true;
       ++*pc;
-      DEBUG_PRINT("[ERROR] RETI NOT IMPLEMENTED");
+      DEBUG_PRINT("[INSTR] RETI\n");
       *cycles = 8;
       break;
 

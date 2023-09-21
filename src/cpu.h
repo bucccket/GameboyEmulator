@@ -6,8 +6,9 @@
 
 #define CPU_OK 0
 #define CPU_ERROR_UNK_INSTRUCTION 1
+#define CPU_ERROR_FAULT 2
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 #define DEBUG_PRINT(...) \
@@ -80,6 +81,6 @@ struct Registers {
 
 int CpuStep(const uint8_t* rom, uint8_t* ram, unsigned short* pc,
             unsigned short* sp, struct Registers* reg, bool* hlt,
-            uint8_t* cycles);
+            uint8_t* cycles, bool* IME);
 void DebugReadBlarggsSerial(uint8_t* ram);
 void PrintBinary8(uint8_t u8);
