@@ -12,14 +12,6 @@
 
 int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
             struct Registers *reg, bool *hlt, uint8_t *cycles, bool *IME) {
-  DEBUG_PRINT(
-      "A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X "
-      "%c%c%c%c\n",
-      A, F, B, C, D, E, H, L, GET_Z ? 'Z' : '_', GET_N ? 'N' : '_',
-      GET_H ? 'H' : '_', GET_C ? 'C' : '_');
-  // getchar();
-  printf("\r$%04X:%02X      ", *pc, memory[*pc]);
-  fflush(stdout);
   DEBUG_PRINT("$%04X:%02X \t", *pc, memory[*pc]);
   uint8_t opcode = memory[*pc];
   if (*sp == 0x0) {
@@ -506,7 +498,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       uint16_t u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
       *pc += 2;
       ram[u16] = A;
-      DEBUG_PRINT("[INSTR] LD ($%04X), A\n", memory[*pc]);
+      DEBUG_PRINT("[INSTR] LD ($%04X), A\n", u16);
       ++*pc;
       *cycles = 16;
       break;
@@ -4338,6 +4330,11 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       return CPU_ERROR_UNK_INSTRUCTION;
   };
 
+  DEBUG_PRINT(
+      "AF: %04X BC: %04X DE: %04X HL: %04X SP: %04X "
+      "%c%c%c%c\n",
+      AF, BC, DE, HL, *sp, GET_Z ? 'Z' : '_', GET_N ? 'N' : '_',
+      GET_H ? 'H' : '_', GET_C ? 'C' : '_');
   return CPU_OK;
 }
 
