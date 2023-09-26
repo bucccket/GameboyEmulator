@@ -669,29 +669,29 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       break;
 
     case 0xF1:  //  POP AF
-      ram[(*sp)++] = F;
-      ram[(*sp)++] = A;
+      F = ram[(*sp)++];
+      A = ram[(*sp)++];
       DEBUG_PRINT("[INSTR] POP AF\n");
       ++*pc;
       *cycles = 12;
       break;
     case 0xC1:  //  POP BC
-      ram[(*sp)++] = C;
-      ram[(*sp)++] = B;
+      C = ram[(*sp)++];
+      B = ram[(*sp)++];
       DEBUG_PRINT("[INSTR] POP BC\n");
       ++*pc;
       *cycles = 12;
       break;
     case 0xD1:  //  POP DE
-      ram[(*sp)++] = E;
-      ram[(*sp)++] = D;
+      E = ram[(*sp)++];
+      D = ram[(*sp)++];
       DEBUG_PRINT("[INSTR] POP DE\n");
       ++*pc;
       *cycles = 12;
       break;
     case 0xE1:  //  POP HL
-      ram[(*sp)++] = L;
-      ram[(*sp)++] = H;
+      L = ram[(*sp)++];
+      H = ram[(*sp)++];
       DEBUG_PRINT("[INSTR] POP HL\n");
       ++*pc;
       *cycles = 12;
@@ -1883,6 +1883,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0x10:  // STOP
       *hlt = true;
       printf("[INFO] STOP\n");
+      CoreDump("core-GameboyEmulator.dmp", ram);
       *pc += 2;  //??
       *cycles = 4;
       break;
@@ -3036,7 +3037,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x47:  // BIT 0, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, A));
+          IF_Z(!CHECK_BIT(0, A));
           DEBUG_PRINT("[INSTR] BIT 0, A\n");
           ++*pc;
           *cycles = 8;
@@ -3044,7 +3045,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x40:  // BIT 0, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, B));
+          IF_Z(!CHECK_BIT(0, B));
           DEBUG_PRINT("[INSTR] BIT 0, B\n");
           ++*pc;
           *cycles = 8;
@@ -3052,7 +3053,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x41:  // BIT 0, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, C));
+          IF_Z(!CHECK_BIT(0, C));
           DEBUG_PRINT("[INSTR] BIT 0, C\n");
           ++*pc;
           *cycles = 8;
@@ -3060,7 +3061,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x42:  // BIT 0, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, D));
+          IF_Z(!CHECK_BIT(0, D));
           DEBUG_PRINT("[INSTR] BIT 0, D\n");
           ++*pc;
           *cycles = 8;
@@ -3068,7 +3069,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x43:  // BIT 0, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, E));
+          IF_Z(!CHECK_BIT(0, E));
           DEBUG_PRINT("[INSTR] BIT 0, E\n");
           ++*pc;
           *cycles = 8;
@@ -3076,7 +3077,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x44:  // BIT 0, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, H));
+          IF_Z(!CHECK_BIT(0, H));
           DEBUG_PRINT("[INSTR] BIT 0, H\n");
           ++*pc;
           *cycles = 8;
@@ -3084,7 +3085,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x45:  // BIT 0, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, L));
+          IF_Z(!CHECK_BIT(0, L));
           DEBUG_PRINT("[INSTR] BIT 0, L\n");
           ++*pc;
           *cycles = 8;
@@ -3092,7 +3093,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x46:  // BIT 0, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(0, ram[HL]));
+          IF_Z(!CHECK_BIT(0, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 0, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3100,7 +3101,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x4F:  // BIT 1, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, A));
+          IF_Z(!CHECK_BIT(1, A));
           DEBUG_PRINT("[INSTR] BIT 1, A\n");
           ++*pc;
           *cycles = 8;
@@ -3108,7 +3109,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x48:  // BIT 1, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, B));
+          IF_Z(!CHECK_BIT(1, B));
           DEBUG_PRINT("[INSTR] BIT 1, B\n");
           ++*pc;
           *cycles = 8;
@@ -3116,7 +3117,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x49:  // BIT 1, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, C));
+          IF_Z(!CHECK_BIT(1, C));
           DEBUG_PRINT("[INSTR] BIT 1, C\n");
           ++*pc;
           *cycles = 8;
@@ -3124,7 +3125,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x4A:  // BIT 1, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, D));
+          IF_Z(!CHECK_BIT(1, D));
           DEBUG_PRINT("[INSTR] BIT 1, D\n");
           ++*pc;
           *cycles = 8;
@@ -3132,7 +3133,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x4B:  // BIT 1, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, E));
+          IF_Z(!CHECK_BIT(1, E));
           DEBUG_PRINT("[INSTR] BIT 1, E\n");
           ++*pc;
           *cycles = 8;
@@ -3140,7 +3141,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x4C:  // BIT 1, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, H));
+          IF_Z(!CHECK_BIT(1, H));
           DEBUG_PRINT("[INSTR] BIT 1, H\n");
           ++*pc;
           *cycles = 8;
@@ -3148,7 +3149,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x4D:  // BIT 1, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, L));
+          IF_Z(!CHECK_BIT(1, L));
           DEBUG_PRINT("[INSTR] BIT 1, L\n");
           ++*pc;
           *cycles = 8;
@@ -3156,7 +3157,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x4E:  // BIT 1, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(1, ram[HL]));
+          IF_Z(!CHECK_BIT(1, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 1, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3164,7 +3165,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x57:  // BIT 2, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, A));
+          IF_Z(!CHECK_BIT(2, A));
           DEBUG_PRINT("[INSTR] BIT 2, A\n");
           ++*pc;
           *cycles = 8;
@@ -3172,7 +3173,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x50:  // BIT 2, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, B));
+          IF_Z(!CHECK_BIT(2, B));
           DEBUG_PRINT("[INSTR] BIT 2, B\n");
           ++*pc;
           *cycles = 8;
@@ -3180,7 +3181,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x51:  // BIT 2, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, C));
+          IF_Z(!CHECK_BIT(2, C));
           DEBUG_PRINT("[INSTR] BIT 2, C\n");
           ++*pc;
           *cycles = 8;
@@ -3188,7 +3189,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x52:  // BIT 2, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, D));
+          IF_Z(!CHECK_BIT(2, D));
           DEBUG_PRINT("[INSTR] BIT 2, D\n");
           ++*pc;
           *cycles = 8;
@@ -3196,7 +3197,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x53:  // BIT 2, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, E));
+          IF_Z(!CHECK_BIT(2, E));
           DEBUG_PRINT("[INSTR] BIT 2, E\n");
           ++*pc;
           *cycles = 8;
@@ -3204,7 +3205,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x54:  // BIT 2, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, H));
+          IF_Z(!CHECK_BIT(2, H));
           DEBUG_PRINT("[INSTR] BIT 2, H\n");
           ++*pc;
           *cycles = 8;
@@ -3212,7 +3213,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x55:  // BIT 2, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, L));
+          IF_Z(!CHECK_BIT(2, L));
           DEBUG_PRINT("[INSTR] BIT 2, L\n");
           ++*pc;
           *cycles = 8;
@@ -3220,7 +3221,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x56:  // BIT 2, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(2, ram[HL]));
+          IF_Z(!CHECK_BIT(2, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 2, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3228,7 +3229,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x5F:  // BIT 3, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, A));
+          IF_Z(!CHECK_BIT(3, A));
           DEBUG_PRINT("[INSTR] BIT 3, A\n");
           ++*pc;
           *cycles = 8;
@@ -3236,7 +3237,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x58:  // BIT 3, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, B));
+          IF_Z(!CHECK_BIT(3, B));
           DEBUG_PRINT("[INSTR] BIT 3, B\n");
           ++*pc;
           *cycles = 8;
@@ -3244,7 +3245,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x59:  // BIT 3, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, C));
+          IF_Z(!CHECK_BIT(3, C));
           DEBUG_PRINT("[INSTR] BIT 3, C\n");
           ++*pc;
           *cycles = 8;
@@ -3252,7 +3253,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x5A:  // BIT 3, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, D));
+          IF_Z(!CHECK_BIT(3, D));
           DEBUG_PRINT("[INSTR] BIT 3, D\n");
           ++*pc;
           *cycles = 8;
@@ -3260,7 +3261,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x5B:  // BIT 3, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, E));
+          IF_Z(!CHECK_BIT(3, E));
           DEBUG_PRINT("[INSTR] BIT 3, E\n");
           ++*pc;
           *cycles = 8;
@@ -3268,7 +3269,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x5C:  // BIT30, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, H));
+          IF_Z(!CHECK_BIT(3, H));
           DEBUG_PRINT("[INSTR] BIT 3, H\n");
           ++*pc;
           *cycles = 8;
@@ -3276,7 +3277,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x5D:  // BIT 3, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, L));
+          IF_Z(!CHECK_BIT(3, L));
           DEBUG_PRINT("[INSTR] BIT 3, L\n");
           ++*pc;
           *cycles = 8;
@@ -3284,7 +3285,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x5E:  // BIT 3, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(3, ram[HL]));
+          IF_Z(!CHECK_BIT(3, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 3, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3292,7 +3293,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x67:  // BIT 4, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, A));
+          IF_Z(!CHECK_BIT(4, A));
           DEBUG_PRINT("[INSTR] BIT 4, A\n");
           ++*pc;
           *cycles = 8;
@@ -3300,7 +3301,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x60:  // BIT 4, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, B));
+          IF_Z(!CHECK_BIT(4, B));
           DEBUG_PRINT("[INSTR] BIT 4, B\n");
           ++*pc;
           *cycles = 8;
@@ -3308,7 +3309,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x61:  // BIT 4, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, C));
+          IF_Z(!CHECK_BIT(4, C));
           DEBUG_PRINT("[INSTR] BIT 4, C\n");
           ++*pc;
           *cycles = 8;
@@ -3316,7 +3317,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x62:  // BIT 4, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, D));
+          IF_Z(!CHECK_BIT(4, D));
           DEBUG_PRINT("[INSTR] BIT 4, D\n");
           ++*pc;
           *cycles = 8;
@@ -3324,7 +3325,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x63:  // BIT 4, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, E));
+          IF_Z(!CHECK_BIT(4, E));
           DEBUG_PRINT("[INSTR] BIT 4, E\n");
           ++*pc;
           *cycles = 8;
@@ -3332,7 +3333,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x64:  // BIT 4, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, H));
+          IF_Z(!CHECK_BIT(4, H));
           DEBUG_PRINT("[INSTR] BIT 4, H\n");
           ++*pc;
           *cycles = 8;
@@ -3340,7 +3341,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x65:  // BIT 4, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, L));
+          IF_Z(!CHECK_BIT(4, L));
           DEBUG_PRINT("[INSTR] BIT 4, L\n");
           ++*pc;
           *cycles = 8;
@@ -3348,7 +3349,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x66:  // BIT 4, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(4, ram[HL]));
+          IF_Z(!CHECK_BIT(4, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 4, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3356,7 +3357,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x6F:  // BIT 5, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, A));
+          IF_Z(!CHECK_BIT(5, A));
           DEBUG_PRINT("[INSTR] BIT 5, A\n");
           ++*pc;
           *cycles = 8;
@@ -3364,7 +3365,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x68:  // BIT 5, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, B));
+          IF_Z(!CHECK_BIT(5, B));
           DEBUG_PRINT("[INSTR] BIT 5, B\n");
           ++*pc;
           *cycles = 8;
@@ -3372,7 +3373,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x69:  // BIT 5, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, C));
+          IF_Z(!CHECK_BIT(5, C));
           DEBUG_PRINT("[INSTR] BIT 5, C\n");
           ++*pc;
           *cycles = 8;
@@ -3380,7 +3381,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x6A:  // BIT 5, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, D));
+          IF_Z(!CHECK_BIT(5, D));
           DEBUG_PRINT("[INSTR] BIT 5, D\n");
           ++*pc;
           *cycles = 8;
@@ -3388,7 +3389,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x6B:  // BIT 5, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, E));
+          IF_Z(!CHECK_BIT(5, E));
           DEBUG_PRINT("[INSTR] BIT 5, E\n");
           ++*pc;
           *cycles = 8;
@@ -3396,7 +3397,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x6C:  // BIT 5, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, H));
+          IF_Z(!CHECK_BIT(5, H));
           DEBUG_PRINT("[INSTR] BIT 5, H\n");
           ++*pc;
           *cycles = 8;
@@ -3404,7 +3405,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x6D:  // BIT 5, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, L));
+          IF_Z(!CHECK_BIT(5, L));
           DEBUG_PRINT("[INSTR] BIT 5, L\n");
           ++*pc;
           *cycles = 8;
@@ -3412,7 +3413,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x6E:  // BIT 5, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(5, ram[HL]));
+          IF_Z(!CHECK_BIT(5, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 5, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3420,7 +3421,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x77:  // BIT 6, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, A));
+          IF_Z(!CHECK_BIT(6, A));
           DEBUG_PRINT("[INSTR] BIT 6, A\n");
           ++*pc;
           *cycles = 8;
@@ -3428,7 +3429,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x70:  // BIT 6, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, B));
+          IF_Z(!CHECK_BIT(6, B));
           DEBUG_PRINT("[INSTR] BIT 6, B\n");
           ++*pc;
           *cycles = 8;
@@ -3436,7 +3437,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x71:  // BIT 6, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, C));
+          IF_Z(!CHECK_BIT(6, C));
           DEBUG_PRINT("[INSTR] BIT 6, C\n");
           ++*pc;
           *cycles = 8;
@@ -3444,7 +3445,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x72:  // BIT 6, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, D));
+          IF_Z(!CHECK_BIT(6, D));
           DEBUG_PRINT("[INSTR] BIT 6, D\n");
           ++*pc;
           *cycles = 8;
@@ -3452,7 +3453,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x73:  // BIT 6, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, E));
+          IF_Z(!CHECK_BIT(6, E));
           DEBUG_PRINT("[INSTR] BIT 6, E\n");
           ++*pc;
           *cycles = 8;
@@ -3460,7 +3461,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x74:  // BIT 6, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, H));
+          IF_Z(!CHECK_BIT(6, H));
           DEBUG_PRINT("[INSTR] BIT 6, H\n");
           ++*pc;
           *cycles = 8;
@@ -3468,7 +3469,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x75:  // BIT 6, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, L));
+          IF_Z(!CHECK_BIT(6, L));
           DEBUG_PRINT("[INSTR] BIT 6, L\n");
           ++*pc;
           *cycles = 8;
@@ -3476,7 +3477,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x76:  // BIT 6, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(6, ram[HL]));
+          IF_Z(!CHECK_BIT(6, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 6, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -3484,7 +3485,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x7F:  // BIT 7, A
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, A));
+          IF_Z(!CHECK_BIT(7, A));
           DEBUG_PRINT("[INSTR] BIT 7, A\n");
           ++*pc;
           *cycles = 8;
@@ -3492,7 +3493,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x78:  // BIT 7, B
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, B));
+          IF_Z(!CHECK_BIT(7, B));
           DEBUG_PRINT("[INSTR] BIT 7, B\n");
           ++*pc;
           *cycles = 8;
@@ -3500,7 +3501,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x79:  // BIT 7, C
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, C));
+          IF_Z(!CHECK_BIT(7, C));
           DEBUG_PRINT("[INSTR] BIT 7, C\n");
           ++*pc;
           *cycles = 8;
@@ -3508,7 +3509,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x7A:  // BIT 7, D
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, D));
+          IF_Z(!CHECK_BIT(7, D));
           DEBUG_PRINT("[INSTR] BIT 7, D\n");
           ++*pc;
           *cycles = 8;
@@ -3516,7 +3517,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x7B:  // BIT 7, E
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, E));
+          IF_Z(!CHECK_BIT(7, E));
           DEBUG_PRINT("[INSTR] BIT 7, E\n");
           ++*pc;
           *cycles = 8;
@@ -3524,7 +3525,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x7C:  // BIT 7, H
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, H));
+          IF_Z(!CHECK_BIT(7, H));
           DEBUG_PRINT("[INSTR] BIT 7, H\n");
           ++*pc;
           *cycles = 8;
@@ -3532,7 +3533,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x7D:  // BIT 7, L
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, L));
+          IF_Z(!CHECK_BIT(7, L));
           DEBUG_PRINT("[INSTR] BIT 7, L\n");
           ++*pc;
           *cycles = 8;
@@ -3540,7 +3541,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
         case 0x7E:  // BIT 7, (HL)
           RES_N;
           SET_H;
-          IF_Z(CHECK_BIT(7, ram[HL]));
+          IF_Z(!CHECK_BIT(7, ram[HL]));
           DEBUG_PRINT("[INSTR] BIT 7, (HL)\n");
           ++*pc;
           *cycles = 16;
@@ -4355,4 +4356,18 @@ void PrintBinary8(uint8_t u8) {
   printf("%d", (u8 & (1 << 2)) != 0);
   printf("%d", (u8 & (1 << 1)) != 0);
   printf("%d ", (u8 & (1 << 0)) != 0);
+}
+
+void CoreDump(const char *fileName, uint8_t *ram) {
+  if (!fileName || !ram) {
+    return;
+  }
+
+  FILE *f = fopen(fileName, "w");
+  fwrite(ram, 1, 0x10000, f);
+  fclose(f);
+
+  printf("[ERROR] Core dumped at %s\n", fileName);
+
+  return;
 }

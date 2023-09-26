@@ -1,7 +1,7 @@
 #include "boot.h"
 
 int BootLoadRom(uint8_t* memory) {
-  const char* BootRomPath = "boot/DMG_ROM.bin";
+  const char* BootRomPath = "boot/DMG_ROM.bin";  //"boot/DMG_ROM.bin";
   return BootLoadTestRom(memory, BootRomPath);
 }
 

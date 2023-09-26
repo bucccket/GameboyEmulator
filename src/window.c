@@ -9,7 +9,7 @@
 int WinInit(struct mfb_window* window) {
   if (!window) return WIN_OK;
 
-  mfb_set_viewport(window, 0, 0, WIDTH << 2, HEIGHT << 2);
+  mfb_set_viewport(window, 0, 0, WIDTH << 1, HEIGHT << 1);
 
   return WIN_OK;
 }
@@ -20,7 +20,7 @@ void ReadTile(uint8_t* tileram, struct tile* tile) {
     uint8_t lsb = *tileram++;
     uint8_t msb = *tileram++;
     for (int_fast8_t x = 0; x < 8; x++) {
-      uint8_t pixel = CHECK_BIT(x, lsb) | CHECK_BIT(x, msb) << 1;
+      uint8_t pixel = CHECK_BIT((7 - x), lsb) | CHECK_BIT((7 - x), msb) << 1;
       tile->pixels[y][x] = tile->palette[pixel];
     }
   }
@@ -72,20 +72,54 @@ void DrawTile(struct tile tile, uint32_t* framebuffer, uint8_t offx,
   }
 }
 
+void DrawTileMap(struct tile* tileBank, uint32_t* framebuffer, uint8_t* ram) {
+  uint16_t tilemap;
+  if (CHECK_BIT(3, LCDC)) {
+    tilemap = 0x9C00;
+  } else {
+    tilemap = 0x9800;
+  }
+  for (int_fast8_t tiley = 0; tiley < 32; tiley++) {
+    for (int_fast8_t tilex = 0; tilex < 32; tilex++) {
+      uint8_t tileidx = ram[tilemap + tilex + (tiley << 5)];
+      DrawTile(tileBank[tileidx], framebuffer, tilex << 3, tiley << 3);
+    }
+  }
+}
+
+void DrawTileData(struct tile* tileBank, uint32_t* framebuffer) {
+  for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
+    uint8_t x = tileidx % 16;
+    uint8_t y = tileidx / 16;
+    DrawTile(tileBank[tileidx], framebuffer, x << 3, y << 3);
+  }
+}
+
 int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
+  // Read LCDC
+  uint16_t tiledata;  // might be a bug
+  if (CHECK_BIT(4, LCDC)) {
+    tiledata = 0x8800;
+  } else {
+    tiledata = 0x8000;
+  }
+
   struct tile tileBankA[256];
   for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
     uint16_t offset = tileidx << 4;
     struct tile tile = {.ID = tileidx, .palette = {Black, LGray, DGray, White}};
-    ReadTile(ram + 0x8000 + offset, &tile);
+    ReadTile(ram + tiledata + offset, &tile);
     tileBankA[tileidx] = tile;
-    uint8_t x = tileidx % 16;
-    uint8_t y = tileidx / 16;
-    PrintTile(tileBankA[tileidx]);
-    DrawTile(tileBankA[tileidx], framebuffer, x << 3, y << 3);
   }
 
-  // framebuffer[i] = MFB_ARGB(0x5f, noise, noise, noise);
+  // TODO: emulate hardware clock!
+
+  // TODO: make internal framebuffer 8bit
+  // TODO: make render region
+
+  DrawTileMap(tileBankA, framebuffer, ram);
+  // DrawTileData(tileBankA, framebuffer);
+  ram[LY] = 0x90;
 
   mfb_update_state state = mfb_update_ex(window, framebuffer, WIDTH, HEIGHT);
   if (state != STATE_OK) {

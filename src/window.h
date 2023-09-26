@@ -10,8 +10,52 @@
 #define WIN_OK 0
 #define WIN_ERROR_CLOSE 1
 
+// tile buffer
 #define WIDTH 256
 #define HEIGHT 256
+
+// GB screen buffer
+#define DISPLAY_WIDTH 143
+#define DISPLAY_HEIGHT 159
+
+// IO regs
+#define LCDC 0xFF40
+/*-LCDC-+----------------------------+----- 0 ----+--------- 1 ---------+
+ |  7   | R/W LCD Enable             | No picture | opertation          |
+ |  6   | R/W Window Tile Map Sel    | 9800-9BFF  | 9C00-9FFF           |
+ |  5   | R/W Window Display         | off        | on                  |
+ |  4   | R/W BG & Win Tile Data Sel | 8800-97FF  | 8000-8FFF (overlap) |
+ |  3   | R/W BG Tile Map Select     | 9800-9BFF  | 9C00-9FFF           |
+ |  2   | R/W OBJ (Sprite) Size      | 8 x 8      | 8 x 16 (w x h)      |
+ |  1   | R/W OBJ (Sprite) Display   | off        | on                  |
+ |  0   | R/W BG & Window Display    | off        | on                  |
+ +------+----------------------------+------------+--------------------*/
+
+#define STAT 0xFF41
+/*-STAT-+---------------------+-----------------------------------------+
+ |  6   | Int Status for LCDC | LYC == LY (Selectable)                  |
+ |  5   | R/W                 | Mode 10                                 |
+ |  4   |                     | Mode 01                                 |
+ |  3   |                     | Mode 00                                 |
+ |  2   |    Coincidence Flag | LYC == (LCDC) LY                        |
+ | 1-0  | R  Mode Flag        | 00: During V-Blank                      |
+ |      |                     | 01: During H-Blank                      |
+ |      |                     | 10: During Searching OAM-RAM            |
+ |      |                     | 11: During Transferring Data to LCD Drv |
+ +------+---------------------+----------------------------------------*/
+
+#define SCY 0xFF42
+#define SCX 0xFF43
+#define LY 0xFF44
+#define LYC 0xFF45
+#define DMA 0xFF46
+#define BGP 0xFF47
+/*-BGP-+------------+
+ | 7-6 | Black 0b00 |
+ | 5-4 | Dark  0b10 |
+ | 3-2 | Light 0b01 |
+ | 1-0 | White 0b11 |
+ +-----+-----------*/
 
 // redef same impl
 #ifndef CHECK_BIT
@@ -27,14 +71,12 @@ enum Colors {
 
 struct tile {
   int8_t ID;
-  uint8_t pixels[8][8];  // 0-3 pixel color
+  uint8_t pixels[8][8];
   uint8_t palette[4];
 };
 
 int WinInit(struct mfb_window* window);
 int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram);
-
-void TileToPixels(struct tile, uint32_t* buffer);
 
 /*-----+------------+
 | 0b11 | white      | 224 248 208
