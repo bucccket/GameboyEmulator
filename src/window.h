@@ -15,8 +15,8 @@
 #define HEIGHT 256
 
 // GB screen buffer
-#define DISPLAY_WIDTH 143
-#define DISPLAY_HEIGHT 159
+#define DISPLAY_WIDTH 160
+#define DISPLAY_HEIGHT 144
 
 // IO regs
 #define LCDC 0xFF40
@@ -75,8 +75,9 @@ struct tile {
   uint8_t palette[4];
 };
 
-int WinInit(struct mfb_window* window);
+int WinInit(struct mfb_window* window, uint32_t width, uint32_t height);
 int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram);
+int TileUpdate(struct mfb_window* window, uint32_t* tilebuffer, uint8_t* ram);
 
 /*-----+------------+
 | 0b11 | white      | 224 248 208

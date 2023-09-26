@@ -28,8 +28,14 @@ int main() {
   // WINDOW
   static uint32_t framebuffer[256 * 256];  // Main Screen buffer @ 32x32 tiles
   struct mfb_window* window =
-      mfb_open("Gameboy Emulator", WIDTH << 1, HEIGHT << 1);
-  WinInit(window);
+      mfb_open("Gameboy Emulator", DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
+  WinInit(window, DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
+
+  // TILE VIEW
+  static uint32_t tilebuffer[128 * 128];
+  struct mfb_window* tilewindow =
+      mfb_open("Gameboy Emulator", 128 << 1, 128 << 1);
+  WinInit(tilewindow, 128 << 1, 128 << 1);
 
   // CPU
   uint8_t ram[0x10000];  // $0000-$FFFF
@@ -66,8 +72,16 @@ int main() {
     if (timerB.tv_nsec < timerA.tv_nsec) {
       timerB.tv_nsec += 1e9;
     }
-    if (window && (timerB.tv_nsec - timerA.tv_nsec) > 16E6) {
-      WinUpdate(window, framebuffer, ram);
+    if ((timerB.tv_nsec - timerA.tv_nsec) > 50E4) {
+      if (window) WinUpdate(window, framebuffer, ram);
+      if (window) {
+        if (!mfb_wait_sync(window)) window = 0x0;
+      }
+      if (tilewindow) TileUpdate(tilewindow, tilebuffer, ram);
+      if (tilewindow) {
+        if (!mfb_wait_sync(tilewindow)) tilewindow = 0x0;
+      }
+
       clock_gettime(CLOCK_REALTIME, &timerA);
     }
     if (pc == 0x100) {

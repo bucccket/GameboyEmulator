@@ -6,10 +6,10 @@
 
 #include "minifb/MiniFB.h"
 
-int WinInit(struct mfb_window* window) {
+int WinInit(struct mfb_window* window, uint32_t width, uint32_t height) {
   if (!window) return WIN_OK;
 
-  mfb_set_viewport(window, 0, 0, WIDTH << 1, HEIGHT << 1);
+  mfb_set_viewport(window, 0, 0, width << 1, height << 1);
 
   return WIN_OK;
 }
@@ -48,8 +48,9 @@ void PrintTile(struct tile tile) {
   }
 }
 
+// square_size uses bitshifts since all buffers are powers of 2
 void DrawTile(struct tile tile, uint32_t* framebuffer, uint8_t offx,
-              uint8_t offy) {
+              uint8_t offy, uint8_t square_size) {
   for (int y = 0; y < 8; y++) {
     for (int x = 0; x < 8; x++) {
       uint32_t pixel;
@@ -67,7 +68,7 @@ void DrawTile(struct tile tile, uint32_t* framebuffer, uint8_t offx,
           pixel = MFB_ARGB(0xFF, 8, 24, 32);
           break;
       }
-      framebuffer[((y + offy) << 8) + (x + offx)] = pixel;
+      framebuffer[((y + offy) << square_size) + (x + offx)] = pixel;
     }
   }
 }
@@ -82,7 +83,7 @@ void DrawTileMap(struct tile* tileBank, uint32_t* framebuffer, uint8_t* ram) {
   for (int_fast8_t tiley = 0; tiley < 32; tiley++) {
     for (int_fast8_t tilex = 0; tilex < 32; tilex++) {
       uint8_t tileidx = ram[tilemap + tilex + (tiley << 5)];
-      DrawTile(tileBank[tileidx], framebuffer, tilex << 3, tiley << 3);
+      DrawTile(tileBank[tileidx], framebuffer, tilex << 3, tiley << 3, 8);
     }
   }
 }
@@ -91,8 +92,39 @@ void DrawTileData(struct tile* tileBank, uint32_t* framebuffer) {
   for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
     uint8_t x = tileidx % 16;
     uint8_t y = tileidx / 16;
-    DrawTile(tileBank[tileidx], framebuffer, x << 3, y << 3);
+    DrawTile(tileBank[tileidx], framebuffer, x << 3, y << 3, 7);
   }
+}
+
+int TileUpdate(struct mfb_window* window, uint32_t* tilebuffer, uint8_t* ram) {
+  // Read LCDC
+
+  uint16_t tiledata;  // might be a bug
+  if (CHECK_BIT(4, LCDC)) {
+    tiledata = 0x8800;
+  } else {
+    tiledata = 0x8000;
+  }
+
+  struct tile tileBank[256];
+  for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
+    uint16_t offset = tileidx << 4;
+    struct tile tile = {.ID = tileidx, .palette = {Black, LGray, DGray, White}};
+    ReadTile(ram + tiledata + offset, &tile);
+    tileBank[tileidx] = tile;
+  }
+
+  if (tileBank[0].ID) {
+    printf("wow");
+  }
+  DrawTileData(tileBank, tilebuffer);
+
+  mfb_update_state state = mfb_update_ex(window, tilebuffer, 128, 128);
+  if (state != STATE_OK) {
+    window = 0x0;
+    return WIN_ERROR_CLOSE;
+  }
+  return WIN_OK;
 }
 
 int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
@@ -104,12 +136,12 @@ int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
     tiledata = 0x8000;
   }
 
-  struct tile tileBankA[256];
+  struct tile tileBank[256];
   for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
     uint16_t offset = tileidx << 4;
     struct tile tile = {.ID = tileidx, .palette = {Black, LGray, DGray, White}};
     ReadTile(ram + tiledata + offset, &tile);
-    tileBankA[tileidx] = tile;
+    tileBank[tileidx] = tile;
   }
 
   // TODO: emulate hardware clock!
@@ -117,11 +149,20 @@ int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
   // TODO: make internal framebuffer 8bit
   // TODO: make render region
 
-  DrawTileMap(tileBankA, framebuffer, ram);
-  // DrawTileData(tileBankA, framebuffer);
+  DrawTileMap(tileBank, framebuffer, ram);
+  // DrawTileData(tileBank, framebuffer);
   ram[LY] = 0x90;
 
-  mfb_update_state state = mfb_update_ex(window, framebuffer, WIDTH, HEIGHT);
+  uint32_t screen[DISPLAY_HEIGHT][DISPLAY_WIDTH];
+  for (uint_fast8_t y = 0; y < DISPLAY_HEIGHT; y++) {
+    for (uint_fast8_t x = 0; x < DISPLAY_WIDTH; x++) {
+      screen[y][x] = framebuffer[(x + ram[SCX]) + ((y + ram[SCY]) << 8)];
+    }
+  }
+
+  // update graphics
+  mfb_update_state state =
+      mfb_update_ex(window, screen, DISPLAY_WIDTH, DISPLAY_HEIGHT);
   if (state != STATE_OK) {
     window = 0x0;
     return WIN_ERROR_CLOSE;
