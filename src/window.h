@@ -75,9 +75,15 @@ struct tile {
   uint8_t palette[4];
 };
 
+struct screen {
+  uint8_t posX;
+  uint8_t posY;
+};
+
 int WinInit(struct mfb_window* window, uint32_t width, uint32_t height);
 int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram);
 int TileUpdate(struct mfb_window* window, uint32_t* tilebuffer, uint8_t* ram);
+int GraphicsUpdate(uint8_t cycles, uint8_t* ram);
 
 /*-----+------------+
 | 0b11 | white      | 224 248 208

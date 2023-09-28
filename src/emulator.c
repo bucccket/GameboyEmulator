@@ -31,12 +31,6 @@ int main() {
       mfb_open("Gameboy Emulator", DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
   WinInit(window, DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
 
-  // TILE VIEW
-  static uint32_t tilebuffer[128 * 128];
-  struct mfb_window* tilewindow =
-      mfb_open("Gameboy Emulator", 128 << 1, 128 << 1);
-  WinInit(tilewindow, 128 << 1, 128 << 1);
-
   // CPU
   uint8_t ram[0x10000];  // $0000-$FFFF
   memset(ram, 0x00, 0x10000);
@@ -60,36 +54,41 @@ int main() {
   bool hlt = false;
 
   struct timespec timerA, timerB;
-  clock_gettime(CLOCK_REALTIME, &timerA);
 
+  // SETUP
   while (1) {
-    if (!hlt) {
-      if (CpuStep(rom, ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK)
-        break;
-      DebugReadBlarggsSerial(ram);
+    const int MAXCYCLES = 69905;
+    int cyclesThisUpdate = 0;
+    while (cyclesThisUpdate < MAXCYCLES) {
+      // start timer
+      clock_gettime(CLOCK_REALTIME, &timerA);
+
+      // CPU
+      if (!hlt) {
+        if (CpuStep(rom, ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK)
+          break;
+        DebugReadBlarggsSerial(ram);
+      }
+      // UPDATE
+      cyclesThisUpdate += cycles;
+      // PPU
+      GraphicsUpdate(cycles, ram);
     }
+    if (timerB.tv_nsec < timerA.tv_nsec) {
+      timerB.tv_nsec += 1e9;
+    }
+    if (window) WinUpdate(window, framebuffer, ram);
+    if (window)
+      if (!mfb_wait_sync(window)) window = 0x0;
+
+    // TIMER SYNC
     clock_gettime(CLOCK_REALTIME, &timerB);
     if (timerB.tv_nsec < timerA.tv_nsec) {
       timerB.tv_nsec += 1e9;
     }
-    if ((timerB.tv_nsec - timerA.tv_nsec) > 50E4) {
-      if (window) WinUpdate(window, framebuffer, ram);
-      if (window) {
-        if (!mfb_wait_sync(window)) window = 0x0;
-      }
-      if (tilewindow) TileUpdate(tilewindow, tilebuffer, ram);
-      if (tilewindow) {
-        if (!mfb_wait_sync(tilewindow)) tilewindow = 0x0;
-      }
-
-      clock_gettime(CLOCK_REALTIME, &timerA);
-    }
-    if (pc == 0x100) {
-      printf("[SUCCESS] Loadup succeeded!!\n");
-      printf("CHECKSUM: %s\n", ram[0xFF50] ? "OK" : "ERR");
-      getchar();
-      // break;
-    }
+    uint64_t timediff = (timerB.tv_nsec - timerA.tv_nsec) - 16666666;
+    if ((-timediff) > 100000)
+      nanosleep(&(struct timespec){.tv_nsec = (-timediff)}, NULL);
   }
 
   return 0;

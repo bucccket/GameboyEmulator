@@ -8,7 +8,7 @@
 #define CPU_ERROR_UNK_INSTRUCTION 1
 #define CPU_ERROR_FAULT 2
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 #define DEBUG_PRINT(...) \

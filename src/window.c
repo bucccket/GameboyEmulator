@@ -96,6 +96,19 @@ void DrawTileData(struct tile* tileBank, uint32_t* framebuffer) {
   }
 }
 
+int GraphicsUpdate(uint8_t cycles, uint8_t* ram) {
+  static struct screen scanline;
+  uint_fast16_t newX = scanline.posX + cycles;
+  if (newX > 0xFF) {
+    scanline.posX = (newX - 0xFF);
+    scanline.posY++;
+    ram[LY] = scanline.posY;  // line reset = overflow
+  } else {
+    scanline.posX = newX;
+  }
+  return WIN_OK;
+}
+
 int TileUpdate(struct mfb_window* window, uint32_t* tilebuffer, uint8_t* ram) {
   // Read LCDC
 
@@ -151,7 +164,6 @@ int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
 
   DrawTileMap(tileBank, framebuffer, ram);
   // DrawTileData(tileBank, framebuffer);
-  ram[LY] = 0x90;
 
   uint32_t screen[DISPLAY_HEIGHT][DISPLAY_WIDTH];
   for (uint_fast8_t y = 0; y < DISPLAY_HEIGHT; y++) {
