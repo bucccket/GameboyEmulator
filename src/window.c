@@ -166,8 +166,8 @@ int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
   // DrawTileData(tileBank, framebuffer);
 
   uint32_t screen[DISPLAY_HEIGHT][DISPLAY_WIDTH];
-  for (uint_fast8_t y = 0; y < DISPLAY_HEIGHT; y++) {
-    for (uint_fast8_t x = 0; x < DISPLAY_WIDTH; x++) {
+  for (uint8_t y = 0; y < DISPLAY_HEIGHT; y++) {
+    for (uint8_t x = 0; x < DISPLAY_WIDTH; x++) {
       screen[y][x] = framebuffer[(x + ram[SCX]) + ((y + ram[SCY]) << 8)];
     }
   }
