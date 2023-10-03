@@ -1,11 +1,10 @@
 #pragma once
 
+#include <MiniFB.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "minifb/MiniFB.h"
 
 #define WIN_OK 0
 #define WIN_ERROR_CLOSE 1

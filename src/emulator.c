@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include <MiniFB.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,7 +9,6 @@
 
 #include "boot.h"
 #include "cpu.h"
-#include "minifb/MiniFB.h"
 #include "window.h"
 
 int main() {
@@ -20,7 +20,7 @@ int main() {
 
   // TEST
   uint8_t rom[0x10000];
-  BootLoadTestRom(rom, "test/cpu_instrs.gb");
+  BootLoadTestRom(rom, "roms/cpu_instrs.gb");
   // BootLoadTestRom(rom, "roms/LinksAwakening.gb");
 
   memcpy(rom, boot, 0x100);
@@ -31,8 +31,8 @@ int main() {
       mfb_open("Gameboy Emulator", DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
   WinInit(window, DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
 
-  // WINDOW
-  static uint32_t tilebuffer[128 * 128];  // Main Screen buffer @ 32x32 tiles
+  // TILEWINDOW
+  static uint32_t tilebuffer[128 * 128];
   struct mfb_window* tilewindow =
       mfb_open("Gameboy Emulator", 128 << 1, 128 << 1);
   WinInit(window, 128 << 1, 128 << 1);
@@ -98,7 +98,7 @@ int main() {
     }
     uint64_t timediff = (timerB.tv_nsec - timerA.tv_nsec) - 16666666;
     if ((-timediff) > 100000)
-      nanosleep(&(struct timespec){.tv_nsec = (-timediff)}, NULL);
+      nanosleep(&(struct timespec){.tv_nsec = (-timediff - 50000)}, NULL);
   }
 
   return 0;

@@ -52,11 +52,7 @@ Mkfile.old
 dkms.conf
 
 #project specifics
-build/
-*.gbc
-*.gb
-*.rom
 *.dmp
 
+build/
 test/
-profiling/

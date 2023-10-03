@@ -1,11 +1,5 @@
 #include "window.h"
 
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/types.h>
-
-#include "minifb/MiniFB.h"
-
 int WinInit(struct mfb_window* window, uint32_t width, uint32_t height) {
   if (!window) return WIN_OK;
 
