@@ -20,9 +20,11 @@ int main() {
 
   // TEST
   uint8_t rom[0x10000];
+  uint8_t rom_reboot_vec[0x100];
   BootLoadTestRom(rom, "roms/cpu_instrs.gb");
   // BootLoadTestRom(rom, "roms/LinksAwakening.gb");
-
+  // SWAP
+  memcpy(rom_reboot_vec, rom, 0x100);
   memcpy(rom, boot, 0x100);
 
   // WINDOW
@@ -43,6 +45,7 @@ int main() {
   memcpy(ram, rom, 0x8000);
   uint8_t cycles;
   bool IME = false;
+  int EnableRom = 0;
 
   // INTERRUPTS
   ram[0xFFFF] = 0x00;  // IE
@@ -68,7 +71,13 @@ int main() {
     while (cyclesThisUpdate < MAXCYCLES) {
       // start timer
       clock_gettime(CLOCK_REALTIME, &timerA);
-
+      // ROM SWAP
+      // TODO: Evaluate old value and update with ram read inside if!
+      if (ram[0xFF50]) {
+        memcpy(ram, rom_reboot_vec, 0x100);
+        memcpy(rom, rom_reboot_vec, 0x100);
+        ram[0xFF50] = 0;
+      }
       // CPU
       if (!hlt) {
         if (CpuStep(rom, ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK)
@@ -83,6 +92,7 @@ int main() {
     if (timerB.tv_nsec < timerA.tv_nsec) {
       timerB.tv_nsec += 1e9;
     }
+
     if (window) WinUpdate(window, framebuffer, ram);
     if (window)
       if (!mfb_wait_sync(window)) window = 0x0;

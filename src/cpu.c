@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "window.h"
+
 // R  - 8 bit Register
 // RR - 16 bit Register
 // (--) - dereference at address
@@ -12,17 +14,20 @@
 
 int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
             struct Registers *reg, bool *hlt, uint8_t *cycles, bool *IME) {
-  DEBUG_PRINT("$%04X:%02X \t", *pc, memory[*pc]);
+  static struct debug dbg = {.trace = DBG_CONTINUE};
+
   uint8_t opcode = memory[*pc];
+  if (opcode) DEBUG_PRINT(MAG "$%04X:" RESET "%02X \t", *pc, opcode);
   if (*sp == 0x0) {
     printf("[ERROR] SP underflowing\n");
     return CPU_ERROR_FAULT;
   }
   switch (opcode) {
     case 0x00:  // NOP
-      DEBUG_PRINT("[INSTR] NOP\n");
+      // DEBUG_PRINT("[INSTR] NOP\n");
       *cycles = 4;
       ++*pc;
+      return CPU_OK;
       break;
 
     /*--------------
@@ -126,11 +131,14 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       *cycles = 8;
       break;
     case 0xFA:  // LD A, (u16)
-      A = memory[++*pc] | memory[++*pc] << 010;
-      DEBUG_PRINT("[INSTR] LD A, $%04X\n", A);
+    {
+      uint16_t u16 = memory[++*pc] | memory[++*pc] << 010;
+      A = ram[u16];
+      DEBUG_PRINT("[INSTR] LD A, ($%04X)\n", u16);
       ++*pc;
       *cycles = 16;
       break;
+    }
     case 0x3E:  // LD A, u8
       A = memory[++*pc];
       DEBUG_PRINT("[INSTR] LD A, $%02X\n", memory[*pc]);
@@ -2067,9 +2075,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xCD:  // CALL u16
     {
       uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
-      *pc += 2;
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      *pc += 3;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = address;
       DEBUG_PRINT("[INSTR] CALL $%04X\n", address);
       *cycles = 12;
@@ -2080,10 +2088,10 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     {
       // op
       uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
-      *pc += 2;
+      *pc += 3;
       if (!GET_Z) {
-        ram[(*sp)--] = *pc >> 010;
-        ram[(*sp)--] = *pc & 0xFF;
+        ram[--*sp] = *pc >> 010;
+        ram[--*sp] = *pc & 0xFF;
         *pc = address;
       }
       DEBUG_PRINT("[INSTR] CALL NZ, $%04X\n", address);
@@ -2094,10 +2102,10 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     {
       // op
       uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
-      *pc += 2;
+      *pc += 3;
       if (GET_Z) {
-        ram[(*sp)--] = *pc >> 010;
-        ram[(*sp)--] = *pc & 0xFF;
+        ram[--*sp] = *pc >> 010;
+        ram[--*sp] = *pc & 0xFF;
         *pc = address;
       }
       DEBUG_PRINT("[INSTR] CALL Z, $%04X\n", address);
@@ -2108,10 +2116,10 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     {
       // op
       uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
-      *pc += 2;
+      *pc += 3;
       if (!GET_C) {
-        ram[(*sp)--] = *pc >> 010;
-        ram[(*sp)--] = *pc & 0xFF;
+        ram[--*sp] = *pc >> 010;
+        ram[--*sp] = *pc & 0xFF;
         *pc = address;
       }
       DEBUG_PRINT("[INSTR] CALL NC, $%04X\n", address);
@@ -2122,10 +2130,10 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     {
       // op
       uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
-      *pc += 2;
+      *pc += 3;
       if (GET_C) {
-        ram[(*sp)--] = *pc >> 010;
-        ram[(*sp)--] = *pc & 0xFF;
+        ram[--*sp] = *pc >> 010;
+        ram[--*sp] = *pc & 0xFF;
         *pc = address;
       }
       DEBUG_PRINT("[INSTR] CALL C, $%04X\n", address);
@@ -2197,55 +2205,53 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
        *  Returns
        *--------*/
     case 0xC9:  // RET
-      *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+      *pc = ram[*sp] | ram[*sp + 1] << 010;
       *sp += 2;
-      ++*pc;
       DEBUG_PRINT("[INSTR] RET\n");
       *cycles = 8;
       break;
 
     case 0xC0:  // RET NZ
       if (!GET_Z) {
-        *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+        *pc = ram[*sp] | ram[*sp + 1] << 010;
         *sp += 2;
-      }
-      ++*pc;
+      } else
+        ++*pc;
       DEBUG_PRINT("[INSTR] RET NZ\n");
       *cycles = 8;
       break;
     case 0xC8:  // RET Z
       if (GET_Z) {
-        *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+        *pc = ram[*sp] | ram[*sp + 1] << 010;
         *sp += 2;
-      }
-      ++*pc;
+      } else
+        ++*pc;
       DEBUG_PRINT("[INSTR] RET Z\n");
       *cycles = 8;
       break;
     case 0xD0:  // RET NC
       if (!GET_C) {
-        *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+        *pc = ram[*sp] | ram[*sp + 1] << 010;
         *sp += 2;
-      }
-      ++*pc;
+      } else
+        ++*pc;
       DEBUG_PRINT("[INSTR] RET NC\n");
       *cycles = 8;
       break;
     case 0xD8:  // RET C
       if (GET_C) {
-        *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+        *pc = ram[*sp] | ram[*sp + 1] << 010;
         *sp += 2;
-      }
-      ++*pc;
+      } else
+        ++*pc;
       DEBUG_PRINT("[INSTR] RET C\n");
       *cycles = 8;
       break;
 
     case 0xD9:  // RETI
-      *pc = ram[*sp + 1] | ram[*sp + 2] << 010;
+      *pc = ram[*sp] | ram[*sp + 1] << 010;
       *sp += 2;
       *IME = true;
-      ++*pc;
       DEBUG_PRINT("[INSTR] RETI\n");
       *cycles = 8;
       break;
@@ -4336,7 +4342,49 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       "%c%c%c%c\n",
       AF, BC, DE, HL, *sp, GET_Z ? 'Z' : '_', GET_N ? 'N' : '_',
       GET_H ? 'H' : '_', GET_C ? 'C' : '_');
+
+  if (*pc == 0x07F7) {
+    dbg.trace = DBG_STEP;
+  }
+
+  if (*pc > 0xFF) {
+    switch (opcode) {
+      case 0xC9:
+      case 0xC0:
+      case 0xC8:
+      case 0xD0:
+      case 0xD8:
+      case 0xD9:
+      case 0xCD:
+      case 0xC4:
+      case 0xCC:
+      case 0xD4:
+      case 0xDC:
+        if (dbg.trace == DBG_STEP_OVER) DebugTrace(&dbg);
+    }
+
+    if (dbg.trace == DBG_STEP) DebugTrace(&dbg);
+  }
+
   return CPU_OK;
+}
+
+void DebugTrace(struct debug *dbg) {
+  int c = getchar();
+  switch (c) {
+    case 'c':
+    case 'C':
+      dbg->trace = DBG_CONTINUE;
+      break;
+    case 'o':
+    case 'O':
+      dbg->trace = DBG_STEP_OVER;
+      break;
+    case 's':
+    case 'S':
+      dbg->trace = DBG_STEP;
+      break;
+  }
 }
 
 void DebugReadBlarggsSerial(uint8_t *ram) {

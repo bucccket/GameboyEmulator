@@ -45,7 +45,7 @@ void PrintTile(struct tile tile) {
 // square_size uses bitshifts since all buffers are powers of 2
 void DrawTile(struct tile tile, uint32_t* framebuffer, uint8_t offx,
               uint8_t offy, uint8_t square_size) {
-  for (int y = 0; y < 8; y++) {
+  for (uint8_t y = 0; y < 8; y++) {
     for (int x = 0; x < 8; x++) {
       uint32_t pixel;
       switch (tile.pixels[y][x]) {
@@ -76,6 +76,7 @@ void DrawTileMap(struct tile* tileBank, uint32_t* framebuffer, uint8_t* ram) {
   }
   for (int_fast8_t tiley = 0; tiley < 32; tiley++) {
     for (int_fast8_t tilex = 0; tilex < 32; tilex++) {
+      tiley %= 32;
       uint8_t tileidx = ram[tilemap + tilex + (tiley << 5)];
       DrawTile(tileBank[tileidx], framebuffer, tilex << 3, tiley << 3, 8);
     }

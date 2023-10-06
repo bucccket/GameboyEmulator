@@ -8,18 +8,27 @@
 #define CPU_ERROR_UNK_INSTRUCTION 1
 #define CPU_ERROR_FAULT 2
 
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
-#define DEBUG_PRINT(...) \
-  do {                   \
-    printf(__VA_ARGS__); \
+#define DEBUG_PRINT(...)                  \
+  do {                                    \
+    if (*pc > 0x100) printf(__VA_ARGS__); \
   } while (0)
 #else
 #define DEBUG_PRINT(...) \
   do {                   \
   } while (0)
 #endif
+
+#define RED "\x1B[31;7m"
+#define GRN "\x1B[32;7m"
+#define YEL "\x1B[33;7m"
+#define BLU "\x1B[34;7m"
+#define MAG "\x1B[35;7m"
+#define CYN "\x1B[36;7m"
+#define WHT "\x1B[37;7m"
+#define RESET "\x1B[0m"
 
 #define A (reg->a)
 #define F (reg->f)
@@ -60,12 +69,9 @@
 #define RES_BIT(b, r) (r &= (~(1 << b)))
 
 #define HALFCARRY_8(n, m) (((((n) & (0xF)) + ((m) & (0xF))) & 0x10) == 0x10)
-
 #define CARRY_8(n, m) (((uint16_t)(n + m) & 0x100) == 0x100)
-
 #define HALFCARRY_16(n, m) \
   (((((n) & (0xFF)) + ((m) & (0xFF))) & 0x1000) == 0x1000)
-
 #define CARRY_16(n, m) (((uint32_t)(n + m) & 0x10000) == 0x10000)
 
 struct Registers {
@@ -79,9 +85,18 @@ struct Registers {
   uint8_t l;
 };
 
+#define DBG_CONTINUE 0
+#define DBG_STEP 1
+#define DBG_STEP_OVER 2
+
+struct debug {
+  uint8_t trace;
+};
+
 int CpuStep(const uint8_t* rom, uint8_t* ram, unsigned short* pc,
             unsigned short* sp, struct Registers* reg, bool* hlt,
             uint8_t* cycles, bool* IME);
 void DebugReadBlarggsSerial(uint8_t* ram);
 void PrintBinary8(uint8_t u8);
 void CoreDump(const char* fileName, uint8_t* ram);
+void DebugTrace(struct debug* dbg);
