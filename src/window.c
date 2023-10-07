@@ -76,7 +76,6 @@ void DrawTileMap(struct tile* tileBank, uint32_t* framebuffer, uint8_t* ram) {
   }
   for (int_fast8_t tiley = 0; tiley < 32; tiley++) {
     for (int_fast8_t tilex = 0; tilex < 32; tilex++) {
-      tiley %= 32;
       uint8_t tileidx = ram[tilemap + tilex + (tiley << 5)];
       DrawTile(tileBank[tileidx], framebuffer, tilex << 3, tiley << 3, 8);
     }
@@ -117,7 +116,7 @@ int TileUpdate(struct mfb_window* window, uint32_t* tilebuffer, uint8_t* ram) {
   struct tile tileBank[256];
   for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
     uint16_t offset = tileidx << 4;
-    struct tile tile = {.ID = tileidx, .palette = {Black, LGray, DGray, White}};
+    struct tile tile = {.ID = tileidx, .palette = {White, DGray, LGray, Black}};
     ReadTile(ram + tiledata + offset, &tile);
     tileBank[tileidx] = tile;
   }
@@ -147,7 +146,7 @@ int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
   struct tile tileBank[256];
   for (int_fast16_t tileidx = 0; tileidx < 256; tileidx++) {
     uint16_t offset = tileidx << 4;
-    struct tile tile = {.ID = tileidx, .palette = {Black, LGray, DGray, White}};
+    struct tile tile = {.ID = tileidx, .palette = {White, DGray, LGray, Black}};
     ReadTile(ram + tiledata + offset, &tile);
     tileBank[tileidx] = tile;
   }
@@ -163,7 +162,8 @@ int WinUpdate(struct mfb_window* window, uint32_t* framebuffer, uint8_t* ram) {
   uint32_t screen[DISPLAY_HEIGHT][DISPLAY_WIDTH];
   for (uint8_t y = 0; y < DISPLAY_HEIGHT; y++) {
     for (uint8_t x = 0; x < DISPLAY_WIDTH; x++) {
-      screen[y][x] = framebuffer[(x + ram[SCX]) + ((y + ram[SCY]) << 8)];
+      screen[y][x] =
+          framebuffer[((x + ram[SCX]) % 256) + (((y + ram[SCY]) % 256) << 8)];
     }
   }
 

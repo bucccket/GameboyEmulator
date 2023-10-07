@@ -8,16 +8,16 @@
 // R  - 8 bit Register
 // RR - 16 bit Register
 // (--) - dereference at address
-// u16 - read 16 bit from memory
-// u8 - read 8 bit from memory
+// u16 - read 16 bit from ram
+// u8 - read 8 bit from ram
 // 00h - hexadecimal number literal
 
 int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
             struct Registers *reg, bool *hlt, uint8_t *cycles, bool *IME) {
   static struct debug dbg = {.trace = DBG_CONTINUE};
 
-  uint8_t opcode = memory[*pc];
-  if (opcode) DEBUG_PRINT(MAG "$%04X:" RESET "%02X \t", *pc, opcode);
+  uint8_t opcode = ram[*pc];
+  if (opcode) DEBUG_PRINT(MAG "$%04X:%02X \t" RESET, *pc, opcode);
   if (*sp == 0x0) {
     printf("[ERROR] SP underflowing\n");
     return CPU_ERROR_FAULT;
@@ -34,38 +34,38 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
      *  8-Bit Loads
      *-------------*/
     case 0x06:  // LD B, u8
-      B = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD B, $%02X\n", memory[*pc]);
+      B = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD B, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
     case 0x0E:  // LD C, u8
-      C = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD C, $%02X\n", memory[*pc]);
+      C = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD C, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
     case 0x16:  // LD D, u8
-      D = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD D, $%02X\n", memory[*pc]);
+      D = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD D, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
     case 0x1E:  // LD E, u8
-      E = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD E, $%02X\n", memory[*pc]);
+      E = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD E, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
     case 0x26:  // LD H, u8
-      H = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD H, $%02X\n", memory[*pc]);
+      H = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD H, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
     case 0x2E:  // LD L, u8
-      L = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD L, $%02X\n", memory[*pc]);
+      L = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD L, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
@@ -132,7 +132,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       break;
     case 0xFA:  // LD A, (u16)
     {
-      uint16_t u16 = memory[++*pc] | memory[++*pc] << 010;
+      uint16_t u16 = ram[++*pc] | ram[++*pc] << 010;
       A = ram[u16];
       DEBUG_PRINT("[INSTR] LD A, ($%04X)\n", u16);
       ++*pc;
@@ -140,8 +140,8 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       break;
     }
     case 0x3E:  // LD A, u8
-      A = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD A, $%02X\n", memory[*pc]);
+      A = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD A, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
@@ -441,8 +441,8 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       *cycles = 8;
       break;
     case 0x36:  // LD (HL), u8
-      ram[HL] = memory[++*pc];
-      DEBUG_PRINT("[INSTR] LD (HL), $%02X\n", memory[*pc]);
+      ram[HL] = ram[++*pc];
+      DEBUG_PRINT("[INSTR] LD (HL), $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 12;
       break;
@@ -490,20 +490,20 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       *cycles = 8;
       break;
     case 0x12:  // LD (DE), A
-      ram[BC] = A;
+      ram[DE] = A;
       DEBUG_PRINT("[INSTR] LD (DE), A\n");
       ++*pc;
       *cycles = 8;
       break;
     case 0x77:  // LD (HL), A
-      ram[BC] = A;
+      ram[HL] = A;
       DEBUG_PRINT("[INSTR] LD (HL), A\n");
       ++*pc;
       *cycles = 8;
       break;
     case 0xEA:  // LD (u16), A
     {
-      uint16_t u16 = memory[*pc + 1] | memory[*pc + 2] << 010;
+      uint16_t u16 = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 2;
       ram[u16] = A;
       DEBUG_PRINT("[INSTR] LD ($%04X), A\n", u16);
@@ -572,14 +572,14 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     }
 
     case 0xF0:  // LD A, (FF00 + u8)
-      A = ram[0xFF00 + memory[++*pc]];
-      DEBUG_PRINT("[INSTR] LD A, (FF00 + $%02X)\n", memory[*pc]);
+      A = ram[0xFF00 + ram[++*pc]];
+      DEBUG_PRINT("[INSTR] LD A, (FF00 + $%02X)\n", ram[*pc]);
       ++*pc;
       *cycles = 12;
       break;
     case 0xE0:  // LD (FF00 + u8), A
-      ram[0xFF00 + memory[++*pc]] = A;
-      DEBUG_PRINT("[INSTR] LD (FF00 + $%02X), A\n", memory[*pc]);
+      ram[0xFF00 + ram[++*pc]] = A;
+      DEBUG_PRINT("[INSTR] LD (FF00 + $%02X), A\n", ram[*pc]);
       ++*pc;
       *cycles = 12;
       break;
@@ -588,28 +588,28 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
      *  16-Bit Loads
      *--------------*/
     case 0x01:  // LD BC, u16
-      C = memory[++*pc];
-      B = memory[++*pc];
+      C = ram[++*pc];
+      B = ram[++*pc];
       DEBUG_PRINT("[INSTR] LD BC, $%04X\n", BC);
       ++*pc;
       *cycles = 12;
       break;
     case 0x11:  // LD DE, u16
-      E = memory[++*pc];
-      D = memory[++*pc];
+      E = ram[++*pc];
+      D = ram[++*pc];
       DEBUG_PRINT("[INSTR] LD DE, $%04X\n", DE);
       ++*pc;
       *cycles = 12;
       break;
     case 0x21:  // LD HL, u16
-      L = memory[++*pc];
-      H = memory[++*pc];
+      L = ram[++*pc];
+      H = ram[++*pc];
       DEBUG_PRINT("[INSTR] LD HL, $%04X\n", HL);
       ++*pc;
       *cycles = 12;
       break;
     case 0x31:  // LD SP, u16
-      *sp = memory[*pc + 1] | memory[*pc + 2] << 010;
+      *sp = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 2;
       DEBUG_PRINT("[INSTR] LD SP, $%04X\n", *sp);
       ++*pc;
@@ -627,7 +627,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     {
       RES_Z;
       RES_N;
-      int8_t i8 = (int8_t)memory[++*pc];
+      int8_t i8 = (int8_t)ram[++*pc];
       uint16_t u16 = *sp + i8;
       H = u16 >> 010;
       L = u16 & 0xFF;
@@ -640,9 +640,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     }
 
     case 0x08:  // LD (u16), HL
-      ram[memory[++*pc]] = L;
-      ram[memory[++*pc]] = H;
-      DEBUG_PRINT("[INSTR] LD ($%04X), HL\n", *((uint16_t *)memory - 2));
+      ram[ram[++*pc]] = L;
+      ram[ram[++*pc]] = H;
+      DEBUG_PRINT("[INSTR] LD ($%04X), HL\n", *((uint16_t *)ram - 2));
       ++*pc;
       *cycles = 20;
       break;
@@ -808,7 +808,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xC6:  //  ADD A, u8
     {
       RES_N;
-      uint8_t u8 = memory[++*pc];
+      uint8_t u8 = ram[++*pc];
       A += u8;
       IF_Z(!A);
       IF_H(HALFCARRY_8(A, u8));
@@ -919,7 +919,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xCE:  //  ADC A, u8
     {
       RES_N;
-      uint8_t u8 = memory[++*pc] + GET_C;
+      uint8_t u8 = ram[++*pc] + GET_C;
       A += u8;
       IF_Z(!A);
       IF_H(HALFCARRY_8(A, u8));
@@ -1030,7 +1030,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xD6:  //  SUB A, u8
     {
       SET_N;
-      uint8_t u8 = memory[++*pc];
+      uint8_t u8 = ram[++*pc];
       A -= u8;
       IF_Z(!A);
       IF_H(HALFCARRY_8(A, ~(u8 + 1)));
@@ -1141,7 +1141,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xDE:  //  SBC A, u8
     {
       SET_N;
-      uint8_t u8 = memory[++*pc] + GET_C;
+      uint8_t u8 = ram[++*pc] + GET_C;
       A -= u8;
       IF_Z(!A);
       IF_H(HALFCARRY_8(A, ~(u8 + 1)));
@@ -1236,9 +1236,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       RES_N;
       SET_H;
       RES_C;
-      A &= memory[++*pc];
+      A &= ram[++*pc];
       IF_Z(!A);
-      DEBUG_PRINT("[INSTR] AND A, $%02X\n", memory[*pc]);
+      DEBUG_PRINT("[INSTR] AND A, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
@@ -1327,9 +1327,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       RES_N;
       RES_H;
       RES_C;
-      A |= memory[++*pc];
+      A |= ram[++*pc];
       IF_Z(!A);
-      DEBUG_PRINT("[INSTR] OR A, $%02X\n", memory[*pc]);
+      DEBUG_PRINT("[INSTR] OR A, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
@@ -1418,9 +1418,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       RES_N;
       RES_H;
       RES_C;
-      A ^= memory[++*pc];
+      A ^= ram[++*pc];
       IF_Z(!A);
-      DEBUG_PRINT("[INSTR] XOR A, $%02X\n", memory[*pc]);
+      DEBUG_PRINT("[INSTR] XOR A, $%02X\n", ram[*pc]);
       ++*pc;
       *cycles = 8;
       break;
@@ -1500,7 +1500,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xFE:  // CP A, u8
     {
       SET_N;
-      uint8_t u8 = memory[++*pc];
+      uint8_t u8 = ram[++*pc];
       IF_Z(A == u8);
       IF_H(HALFCARRY_8(A, (~u8 + 1)));
       IF_C(A < u8);
@@ -1747,7 +1747,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xE8:  // ADD SP, i8
       RES_Z;
       RES_N;
-      int8_t i8 = memory[++*pc];
+      int8_t i8 = ram[++*pc];
       *sp += i8;
       IF_H(HALFCARRY_16(*sp, i8));
       IF_C(CARRY_16(*sp, i8));
@@ -1964,63 +1964,53 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
      *  Jumps
      *-------*/
     case 0xC3:  // JP u16
-      *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
-      //++*pc;
+      *pc = ram[*pc + 1] | ram[*pc + 2] << 010;
       DEBUG_PRINT("[INSTR] JP $%04X\n", *pc);
       *cycles = 16;
       break;
 
     case 0xC2:  // JP NZ, u16
       if (!GET_Z)
-        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+        *pc = ram[*pc + 1] | ram[*pc + 2] << 010;
       else
         *pc += 3;
-      //++*pc;
-      DEBUG_PRINT("[INSTR] JP NZ, $%04X\n",
-                  memory[*pc] | memory[*pc + 1] << 010);
+      DEBUG_PRINT("[INSTR] JP NZ, $%04X\n", ram[*pc] | ram[*pc + 1] << 010);
       *cycles = 12;
       break;
     case 0xCA:  // JP Z, u16
       if (GET_Z)
-        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+        *pc = ram[*pc + 1] | ram[*pc + 2] << 010;
       else
         *pc += 3;
-      //++*pc;
-      DEBUG_PRINT("[INSTR] JP Z, $%04X\n",
-                  memory[*pc] | memory[*pc + 1] << 010);
+      DEBUG_PRINT("[INSTR] JP Z, $%04X\n", ram[*pc] | ram[*pc + 1] << 010);
       *cycles = 12;
       break;
     case 0xD2:  // JP NC, u16
       if (!GET_C)
-        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+        *pc = ram[*pc + 1] | ram[*pc + 2] << 010;
       else
         *pc += 3;
-      //++*pc;
-      DEBUG_PRINT("[INSTR] JP NC, $%04X\n",
-                  memory[*pc] | memory[*pc + 1] << 010);
+      DEBUG_PRINT("[INSTR] JP NC, $%04X\n", ram[*pc] | ram[*pc + 1] << 010);
       *cycles = 12;
       break;
     case 0xDA:  // JP C, u16
       if (GET_C)
-        *pc = memory[*pc + 1] | memory[*pc + 2] << 010;
+        *pc = ram[*pc + 1] | ram[*pc + 2] << 010;
       else
         *pc += 3;
-      //++*pc;
-      DEBUG_PRINT("[INSTR] JP C, $%04X\n",
-                  memory[*pc] | memory[*pc + 1] << 010);
+      DEBUG_PRINT("[INSTR] JP C, $%04X\n", ram[*pc] | ram[*pc + 1] << 010);
       *cycles = 12;
       break;
 
     case 0xE9:  // JP (HL)
       *pc = HL;
-      //++*pc;
       DEBUG_PRINT("[INSTR] JP (HL)\n");
       *cycles = 4;
       break;
 
     case 0x18:  // JR i8
     {
-      int8_t i8 = memory[++*pc];
+      int8_t i8 = ram[++*pc];
       *pc += i8;
       ++*pc;
       DEBUG_PRINT("[INSTR] JR $%04X\n", *pc);
@@ -2030,7 +2020,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
 
     case 0x20:  // JR NZ, i8
     {
-      int8_t i8 = memory[++*pc];
+      int8_t i8 = ram[++*pc];
       uint16_t addr = *pc + i8;
       if (!GET_Z) *pc = addr;
       ++*pc;
@@ -2040,7 +2030,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     }
     case 0x28:  // JR Z, i8
     {
-      int8_t i8 = memory[++*pc];
+      int8_t i8 = ram[++*pc];
       uint16_t addr = *pc + i8;
       if (GET_Z) *pc = addr;
       ++*pc;
@@ -2050,7 +2040,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     }
     case 0x30:  // JR NC, i8
     {
-      int8_t i8 = memory[++*pc];
+      int8_t i8 = ram[++*pc];
       uint16_t addr = *pc + i8;
       if (!GET_C) *pc = addr;
       ++*pc;
@@ -2060,7 +2050,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     }
     case 0x38:  // JR C, i8
     {
-      int8_t i8 = memory[++*pc];
+      int8_t i8 = ram[++*pc];
       uint16_t addr = *pc + i8;
       if (GET_C) *pc = addr;
       ++*pc;
@@ -2074,7 +2064,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
        *-------*/
     case 0xCD:  // CALL u16
     {
-      uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
+      uint16_t address = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 3;
       ram[--*sp] = *pc >> 010;
       ram[--*sp] = *pc & 0xFF;
@@ -2087,7 +2077,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xC4:  // CALL NZ, u16
     {
       // op
-      uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
+      uint16_t address = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 3;
       if (!GET_Z) {
         ram[--*sp] = *pc >> 010;
@@ -2101,7 +2091,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xCC:  // CALL Z, u16
     {
       // op
-      uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
+      uint16_t address = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 3;
       if (GET_Z) {
         ram[--*sp] = *pc >> 010;
@@ -2115,7 +2105,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xD4:  // CALL NC, u16
     {
       // op
-      uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
+      uint16_t address = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 3;
       if (!GET_C) {
         ram[--*sp] = *pc >> 010;
@@ -2129,7 +2119,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     case 0xDC:  // CALL C, u16
     {
       // op
-      uint16_t address = memory[*pc + 1] | memory[*pc + 2] << 010;
+      uint16_t address = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 3;
       if (GET_C) {
         ram[--*sp] = *pc >> 010;
@@ -2260,7 +2250,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
      *  Prefix for extended instructions
      *----------------------------------*/
     case 0XCB:
-      opcode = memory[++*pc];
+      opcode = ram[++*pc];
       switch (opcode) {
           /*------
            *  Misc
@@ -4343,7 +4333,7 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       AF, BC, DE, HL, *sp, GET_Z ? 'Z' : '_', GET_N ? 'N' : '_',
       GET_H ? 'H' : '_', GET_C ? 'C' : '_');
 
-  if (*pc == 0x07F7) {
+  if (*pc == 0xFFFF) {
     dbg.trace = DBG_STEP;
   }
 

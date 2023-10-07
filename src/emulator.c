@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <MiniFB.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -11,8 +12,18 @@
 #include "cpu.h"
 #include "window.h"
 
+static volatile int keepRunning = 1;
+
+static uint8_t ram[0x10000];  // $0000-$FFFF
+void coreDumpHandle(int dummy) {
+  CoreDump("core-GameboyEmulator.dmp", ram);
+  exit(0);
+}
+
 int main() {
   printf("Launched\n");
+
+  signal(SIGINT, coreDumpHandle);
 
   // ROM
   uint8_t boot[0x100];
@@ -34,13 +45,14 @@ int main() {
   WinInit(window, DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
 
   // TILEWINDOW
+  /*
   static uint32_t tilebuffer[128 * 128];
   struct mfb_window* tilewindow =
       mfb_open("Gameboy Emulator", 128 << 1, 128 << 1);
   WinInit(window, 128 << 1, 128 << 1);
+  */
 
   // CPU
-  uint8_t ram[0x10000];  // $0000-$FFFF
   memset(ram, 0x00, 0x10000);
   memcpy(ram, rom, 0x8000);
   uint8_t cycles;
@@ -96,12 +108,13 @@ int main() {
     if (window) WinUpdate(window, framebuffer, ram);
     if (window)
       if (!mfb_wait_sync(window)) window = 0x0;
-
+    /*
     if (tilewindow) TileUpdate(tilewindow, tilebuffer, ram);
     if (tilewindow)
       if (!mfb_wait_sync(tilewindow)) tilewindow = 0x0;
-
+    */
     // TIMER SYNC
+    /*
     clock_gettime(CLOCK_REALTIME, &timerB);
     if (timerB.tv_nsec < timerA.tv_nsec) {
       timerB.tv_nsec += 1e9;
@@ -109,6 +122,7 @@ int main() {
     uint64_t timediff = (timerB.tv_nsec - timerA.tv_nsec) - 16666666;
     if ((-timediff) > 100000)
       nanosleep(&(struct timespec){.tv_nsec = (-timediff - 50000)}, NULL);
+    */
   }
 
   return 0;
