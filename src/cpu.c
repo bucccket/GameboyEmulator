@@ -1734,10 +1734,10 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
     {
       RES_N;
       uint16_t u16 = HL + *sp;
-      H = u16 >> 010;
-      L = u16 & 0xFF;
       IF_H(HALFCARRY_16(HL, *sp));
       IF_C(CARRY_16(HL, *sp));
+      H = u16 >> 010;
+      L = u16 & 0xFF;
       DEBUG_PRINT("[INSTR] ADD HL, SP\n");
       ++*pc;
       *cycles = 8;
@@ -1748,9 +1748,9 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       RES_Z;
       RES_N;
       int8_t i8 = ram[++*pc];
-      *sp += i8;
       IF_H(HALFCARRY_16(*sp, i8));
       IF_C(CARRY_16(*sp, i8));
+      *sp += i8;
       DEBUG_PRINT("[INSTR] ADD SP, $%02X\n", i8);
       ++*pc;
       *cycles = 16;
@@ -2135,57 +2135,57 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
        *  Restarts
        *----------*/
     case 0xC7:  // RST 00h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x00;
       DEBUG_PRINT("[INSTR] RST 00h\n");
       *cycles = 32;
       break;
     case 0xCF:  // RST 08h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x08;
       DEBUG_PRINT("[INSTR] RST 08h\n");
       *cycles = 32;
       break;
     case 0xD7:  // RST 10h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x10;
       DEBUG_PRINT("[INSTR] RST 10h\n");
       *cycles = 32;
       break;
     case 0xDF:  // RST 18h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x18;
       DEBUG_PRINT("[INSTR] RST 18h\n");
       *cycles = 32;
       break;
     case 0xE7:  // RST 20h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x20;
       DEBUG_PRINT("[INSTR] RST 20h\n");
       *cycles = 32;
       break;
     case 0xEF:  // RST 28h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x28;
       DEBUG_PRINT("[INSTR] RST 28h\n");
       *cycles = 32;
       break;
     case 0xF7:  // RST 30h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x30;
       DEBUG_PRINT("[INSTR] RST 30h\n");
       *cycles = 32;
       break;
     case 0xFF:  // RST 38h
-      ram[(*sp)--] = *pc >> 010;
-      ram[(*sp)--] = *pc & 0xFF;
+      ram[--*sp] = *pc >> 010;
+      ram[--*sp] = *pc & 0xFF;
       *pc = 0x38;
       DEBUG_PRINT("[INSTR] RST 38h\n");
       *cycles = 32;

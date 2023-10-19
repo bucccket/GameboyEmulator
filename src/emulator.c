@@ -59,6 +59,80 @@ int main() {
   bool IME = false;
   int EnableRom = 0;
 
+  // GB HEADER
+  // Cartridge Type:
+  printf("[INFO] ROM TYPE: ");
+  switch (ram[0x0147]) {
+    case 0x00:
+      printf("ROM ONLY \n");
+      break;
+    case 0x01:
+      printf("ROM + MBC1 \n");
+      break;
+    case 0x02:
+      printf("ROM + MBC1 + RAM \n");
+      break;
+    case 0x03:
+      printf("ROM + MBC1 + RAM + BATT \n");
+      break;
+    case 0x05:
+      printf("ROM + MBC2 \n");
+      break;
+    case 0x06:
+      printf("ROM + MBC2 + BATT \n");
+      break;
+    case 0x08:
+      printf("ROM + RAM \n");
+      break;
+    case 0x09:
+      printf("ROM + RAM + BAT \n");
+      break;
+    case 0x0B:
+      printf("ROM + MMM01 \n");
+      break;
+    case 0x0C:
+      printf("ROM + MMM01 + SRAM \n");
+      break;
+    case 0x0D:
+      printf("ROM + MMM01 + SRAM + BATT \n");
+      break;
+    case 0x12:
+      printf("ROM + MBC3 + RAM \n");
+      break;
+    case 0x13:
+      printf("ROM + MBC3 + RAM + BATT \n");
+      break;
+    case 0x19:
+      printf("ROM + MBC5 \n");
+      break;
+    case 0x1A:
+      printf("ROM + MBC5 + RAM \n");
+      break;
+    case 0x1B:
+      printf("ROM + MBC5 + RAM + BATT \n");
+      break;
+    case 0x1C:
+      printf("ROM + MBC5 + RUMBLE \n");
+      break;
+    case 0x1D:
+      printf("ROM + MBC5 + RUMBLE + SRAM \n");
+      break;
+    case 0x1E:
+      printf("ROM + MBC5 + RUMBLE + SRAM + BATT \n");
+      break;
+    case 0x1F:
+      printf("Pocket Camera \n");
+      break;
+    case 0xFD:
+      printf("BANDAI TAMA5 \n");
+      break;
+    case 0xFE:
+      printf("- Hudson HuC-3 \n");
+      break;
+    default:
+      printf("UNKNOWN \n");
+  }
+
   // INTERRUPTS
   ram[0xFFFF] = 0x00;  // IE
   ram[0xFF0F] = 0xe0;  // IF
@@ -112,9 +186,7 @@ int main() {
     if (tilewindow) TileUpdate(tilewindow, tilebuffer, ram);
     if (tilewindow)
       if (!mfb_wait_sync(tilewindow)) tilewindow = 0x0;
-    */
     // TIMER SYNC
-    /*
     clock_gettime(CLOCK_REALTIME, &timerB);
     if (timerB.tv_nsec < timerA.tv_nsec) {
       timerB.tv_nsec += 1e9;
