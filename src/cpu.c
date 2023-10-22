@@ -1,10 +1,5 @@
 #include "cpu.h"
 
-#include <stdint.h>
-#include <stdio.h>
-
-#include "window.h"
-
 // R  - 8 bit Register
 // RR - 16 bit Register
 // (--) - dereference at address
@@ -132,7 +127,7 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
       break;
     case 0xFA:  // LD A, (u16)
     {
-      uint16_t u16 = ram[*pc] | ram[*pc + 1] << 010;
+      uint16_t u16 = ram[*pc + 1] | ram[*pc + 2] << 010;
       *pc += 2;
       A = ram[u16];
       DEBUG_PRINT("[INSTR] LD A, ($%04X)\n", u16);
