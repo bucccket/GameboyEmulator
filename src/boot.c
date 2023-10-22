@@ -1,19 +1,14 @@
 #include "boot.h"
 
-int BootLoadRom(uint8_t* memory) {
+int BootLoadRom(uint8_t rom[0x100]) {
   const char* BootRomPath = "boot/DMG_ROM.bin";  //"boot/DMG_ROM.bin";
-  return BootLoadTestRom(memory, BootRomPath);
-}
+  //
+  FILE* file = fopen(BootRomPath, "rb");
 
-int BootLoadTestRom(uint8_t* memory, const char* fileName) {
-  const char* BootRomPath = fileName;
-
-  if (!memory) {
-    printf("[ERROR] %s: no allocated memory for\n", __func__);
+  if (!rom) {
+    printf("[ERROR] %s: no allocated rom for\n", __func__);
     return BOOT_ERROR_MEMORY;
   }
-
-  FILE* file = fopen(BootRomPath, "rb");
 
   if (!file) {
     printf("[ERROR] %s: file %s not found!\n", __func__, BootRomPath);
@@ -22,9 +17,35 @@ int BootLoadTestRom(uint8_t* memory, const char* fileName) {
 
   int readpos = 0;
 
-  while (fread(&memory[readpos++], 1, 1, file))
+  while (fread(&rom[readpos++], 1, 1, file))
     ;
 
+  fclose(file);
+
+  return BOOT_OK;
+}
+
+int BootLoadTestRom(uint8_t** rom, const char* fileName) {
+  const char* BootRomPath = fileName;
+  FILE* file = fopen(BootRomPath, "rb");
+
+  if (!file) {
+    printf("[ERROR] %s: file %s not found!\n", __func__, BootRomPath);
+    return BOOT_ERROR_FILE;
+  }
+
+  fseek(file, 0L, SEEK_END);
+  size_t size = ftell(file);
+  rewind(file);
+
+  *rom = calloc(size, sizeof(uint8_t));
+
+  if (!*rom) {
+    printf("[ERROR] %s: no allocated rom for\n", __func__);
+    return BOOT_ERROR_MEMORY;
+  }
+
+  fread(*rom, size, 1, file);
   fclose(file);
 
   return BOOT_OK;

@@ -10,13 +10,16 @@
 
 #include "boot.h"
 #include "cpu.h"
+#include "rom.h"
 #include "window.h"
 
 static volatile int keepRunning = 1;
 
+static uint8_t* rom;
 static uint8_t ram[0x10000];  // $0000-$FFFF
 void coreDumpHandle(int dummy) {
   CoreDump("core-GameboyEmulator.dmp", ram);
+  free(rom);
   exit(0);
 }
 
@@ -30,13 +33,13 @@ int main() {
   BootLoadRom(boot);
 
   // TEST
-  uint8_t rom[0x10000];
   uint8_t rom_reboot_vec[0x100];
-  BootLoadTestRom(rom, "roms/cpu_instrs.gb");
-  // BootLoadTestRom(rom, "roms/LinksAwakening.gb");
+  BootLoadTestRom(&rom, "roms/cpu_instrs.gb");
+  // BootLoadTestRom(&rom, "roms/Tetris (World) (Rev A).gb");
+  // BootLoadTestRom(&rom, "roms/Dr. Mario (World).gb");
+  // BootLoadTestRom(&rom, "roms/Link's Awakening.gb");
   // SWAP
   memcpy(rom_reboot_vec, rom, 0x100);
-  memcpy(rom, boot, 0x100);
 
   // WINDOW
   static uint32_t framebuffer[256 * 256];  // Main Screen buffer @ 32x32 tiles
@@ -45,93 +48,23 @@ int main() {
   WinInit(window, DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
 
   // TILEWINDOW
-  /*
   static uint32_t tilebuffer[128 * 128];
   struct mfb_window* tilewindow =
       mfb_open("Gameboy Emulator", 128 << 1, 128 << 1);
   WinInit(window, 128 << 1, 128 << 1);
-  */
 
   // CPU
   memset(ram, 0x00, 0x10000);
-  memcpy(ram, rom, 0x8000);
+  memcpy(ram, rom, 0x4000);  // copy BNK0
+  memcpy(ram, boot, 0x100);  // insert BIOS
   uint8_t cycles;
   bool IME = false;
-  int EnableRom = 0;
 
   // GB HEADER
   // Cartridge Type:
-  printf("[INFO] ROM TYPE: ");
-  switch (ram[0x0147]) {
-    case 0x00:
-      printf("ROM ONLY \n");
-      break;
-    case 0x01:
-      printf("ROM + MBC1 \n");
-      break;
-    case 0x02:
-      printf("ROM + MBC1 + RAM \n");
-      break;
-    case 0x03:
-      printf("ROM + MBC1 + RAM + BATT \n");
-      break;
-    case 0x05:
-      printf("ROM + MBC2 \n");
-      break;
-    case 0x06:
-      printf("ROM + MBC2 + BATT \n");
-      break;
-    case 0x08:
-      printf("ROM + RAM \n");
-      break;
-    case 0x09:
-      printf("ROM + RAM + BAT \n");
-      break;
-    case 0x0B:
-      printf("ROM + MMM01 \n");
-      break;
-    case 0x0C:
-      printf("ROM + MMM01 + SRAM \n");
-      break;
-    case 0x0D:
-      printf("ROM + MMM01 + SRAM + BATT \n");
-      break;
-    case 0x12:
-      printf("ROM + MBC3 + RAM \n");
-      break;
-    case 0x13:
-      printf("ROM + MBC3 + RAM + BATT \n");
-      break;
-    case 0x19:
-      printf("ROM + MBC5 \n");
-      break;
-    case 0x1A:
-      printf("ROM + MBC5 + RAM \n");
-      break;
-    case 0x1B:
-      printf("ROM + MBC5 + RAM + BATT \n");
-      break;
-    case 0x1C:
-      printf("ROM + MBC5 + RUMBLE \n");
-      break;
-    case 0x1D:
-      printf("ROM + MBC5 + RUMBLE + SRAM \n");
-      break;
-    case 0x1E:
-      printf("ROM + MBC5 + RUMBLE + SRAM + BATT \n");
-      break;
-    case 0x1F:
-      printf("Pocket Camera \n");
-      break;
-    case 0xFD:
-      printf("BANDAI TAMA5 \n");
-      break;
-    case 0xFE:
-      printf("- Hudson HuC-3 \n");
-      break;
-    default:
-      printf("UNKNOWN \n");
-  }
+  PrintRomType(ram);
+  PrintRomSize(ram);
+  PrintRamSize(ram);
 
   // INTERRUPTS
   ram[0xFFFF] = 0x00;  // IE
@@ -166,8 +99,7 @@ int main() {
       }
       // CPU
       if (!hlt) {
-        if (CpuStep(rom, ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK)
-          break;
+        if (CpuStep(ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK) break;
         DebugReadBlarggsSerial(ram);
       }
       // UPDATE
@@ -182,11 +114,11 @@ int main() {
     if (window) WinUpdate(window, framebuffer, ram);
     if (window)
       if (!mfb_wait_sync(window)) window = 0x0;
-    /*
     if (tilewindow) TileUpdate(tilewindow, tilebuffer, ram);
     if (tilewindow)
       if (!mfb_wait_sync(tilewindow)) tilewindow = 0x0;
     // TIMER SYNC
+    /*
     clock_gettime(CLOCK_REALTIME, &timerB);
     if (timerB.tv_nsec < timerA.tv_nsec) {
       timerB.tv_nsec += 1e9;

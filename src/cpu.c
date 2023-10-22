@@ -12,8 +12,8 @@
 // u8 - read 8 bit from ram
 // 00h - hexadecimal number literal
 
-int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
-            struct Registers *reg, bool *hlt, uint8_t *cycles, bool *IME) {
+int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
+            bool *hlt, uint8_t *cycles, bool *IME) {
   static struct debug dbg = {.trace = DBG_CONTINUE};
 
   uint8_t opcode = ram[*pc];
@@ -132,7 +132,8 @@ int CpuStep(const uint8_t *memory, uint8_t *ram, uint16_t *pc, uint16_t *sp,
       break;
     case 0xFA:  // LD A, (u16)
     {
-      uint16_t u16 = ram[++*pc] | ram[++*pc] << 010;
+      uint16_t u16 = ram[*pc] | ram[*pc + 1] << 010;
+      *pc += 2;
       A = ram[u16];
       DEBUG_PRINT("[INSTR] LD A, ($%04X)\n", u16);
       ++*pc;

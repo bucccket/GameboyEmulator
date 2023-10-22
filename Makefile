@@ -11,7 +11,8 @@ DEPS := $(OBJS:.o=.d)
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -Wpedantic -Werror -std=c99 -g -Iminifb/include
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c99 -g -Iminifb/include 
+CPPFLAGS += -Wall -Werror -Wpedantic
 
 LDFLAGS ?= -lX11 -L./$(LIB_DIR) -lminifb -lX11 -lGL
 
