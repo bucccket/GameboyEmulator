@@ -624,12 +624,12 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
       RES_Z;
       RES_N;
       int8_t i8 = (int8_t)ram[++*pc];
+      IF_H(HALFCARRY_16(*sp, i8));
+      IF_C(CARRY_16(*sp, i8));
       uint16_t u16 = *sp + i8;
       H = u16 >> 010;
       L = u16 & 0xFF;
       DEBUG_PRINT("[INSTR] LD HL, $%04X\n", HL);
-      IF_H(HALFCARRY_16(*sp, i8));
-      IF_C(CARRY_16(*sp, i8));
       ++*pc;
       *cycles = 12;
       break;
@@ -674,6 +674,7 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
 
     case 0xF1:  //  POP AF
       F = ram[(*sp)++];
+      F &= 0xF0;
       A = ram[(*sp)++];
       DEBUG_PRINT("[INSTR] POP AF\n");
       ++*pc;
@@ -792,10 +793,10 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
     {
       RES_N;
       uint8_t u8 = ram[HL];
-      A += u8;
-      IF_Z(!A);
       IF_H(HALFCARRY_8(A, u8));
       IF_C(CARRY_8(A, u8));
+      A += u8;
+      IF_Z(!A);
       DEBUG_PRINT("[INSTR] ADD A, (HL)X\n");
       ++*pc;
       *cycles = 8;
@@ -903,10 +904,10 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
     {
       RES_N;
       uint8_t u8 = ram[HL] + GET_C;
-      A += u8;
-      IF_Z(!A);
       IF_H(HALFCARRY_8(A, u8));
       IF_C(CARRY_8(A, u8));
+      A += u8;
+      IF_Z(!A);
       DEBUG_PRINT("[INSTR] ADC A, (HL)X\n");
       ++*pc;
       *cycles = 8;
@@ -1014,10 +1015,10 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
     {
       SET_N;
       uint8_t u8 = ram[HL];
-      A -= u8;
-      IF_Z(!A);
       IF_H(HALFCARRY_8(A, ~(u8 + 1)));
       IF_C(CARRY_8(A, ~(u8 + 1)));
+      A -= u8;
+      IF_Z(!A);
       DEBUG_PRINT("[INSTR] SUB A, (HL)X\n");
       ++*pc;
       *cycles = 8;
@@ -1125,10 +1126,10 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
     {
       SET_N;
       uint8_t u8 = ram[HL] + GET_C;
-      A -= u8;
-      IF_Z(!A);
       IF_H(HALFCARRY_8(A, ~(u8 + 1)));
       IF_C(CARRY_8(A, ~(u8 + 1)));
+      A -= u8;
+      IF_Z(!A);
       DEBUG_PRINT("[INSTR] SBC A, (HL)X\n");
       ++*pc;
       *cycles = 8;
@@ -1729,9 +1730,9 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
     case 0x39:  // ADD HL, SP
     {
       RES_N;
-      uint16_t u16 = HL + *sp;
       IF_H(HALFCARRY_16(HL, *sp));
       IF_C(CARRY_16(HL, *sp));
+      uint16_t u16 = HL + *sp;
       H = u16 >> 010;
       L = u16 & 0xFF;
       DEBUG_PRINT("[INSTR] ADD HL, SP\n");
@@ -1831,17 +1832,23 @@ int CpuStep(uint8_t *ram, uint16_t *pc, uint16_t *sp, struct Registers *reg,
      *------*/
     case 0x27:  //  DAA
     {
-      RES_H;
-      uint8_t correction = 0;
+      dbg.trace = DBG_STEP;
+      int8_t correction = A;
 
-      if (!GET_N && (A & 0xF) > 0x9) correction |= 0x6;
-
-      if (!GET_C || (!GET_N && A > 0x99)) {
-        correction |= 0x60;
-        SET_C;
+      if (!GET_N) {
+        if (GET_H || (correction & 0x0F) > 9) correction += 0x06;
+        if (GET_C || correction > 0x9F) correction += 0x60;
+      } else {
+        if (GET_H) {
+          correction -= 0x06;
+          if (!GET_C) correction &= 0xFF;
+        }
+        if (GET_C) correction -= 0x60;
       }
+      RES_H;
 
-      A += GET_N ? -correction : correction;
+      A = correction;
+      IF_C(correction & 0x100);
       IF_Z(!A);
 
       DEBUG_PRINT("[INSTR] DAA\n");

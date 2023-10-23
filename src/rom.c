@@ -38,9 +38,6 @@ __extension__ void PrintRomType(uint8_t* ram) {
   printf("[INFO] ROM TYPE: %s\n", CartridgeTypes[type]);
 }
 
-// #pragma GCC diagnostic push
-// #pragma GCC diagnostic ignored "-Wpedantic"
-
 __extension__ void PrintRomSize(uint8_t* ram) {
   uint8_t type = ram[0x0148];
   uint32_t bytes;
@@ -62,10 +59,12 @@ __extension__ void PrintRomSize(uint8_t* ram) {
       bytes = 12582912;
       banks = 96;
       break;
+    default:
+      bytes = 0;
+      banks = 0;
   }
   printf("[INFO] ROM SIZE: %d KB %d banks\n", bytes, banks);
 }
-// #pragma GCC diagnostic pop
 
 void PrintRamSize(uint8_t* ram) {
   uint8_t type = ram[0x0149];

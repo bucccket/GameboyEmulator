@@ -1,5 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
+#define TEST_DIR "test/gb-test-roms/cpu_instrs/individual/"
+
 #include <MiniFB.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -31,10 +33,26 @@ int main() {
   // ROM
   uint8_t boot[0x100];
   BootLoadRom(boot);
+  static const char* DebugFiles[11] = {"01-special.gb",
+                                       "02-interrupts.gb",
+                                       "03-op sp,hl.gb",
+                                       "04-op r,imm.gb",
+                                       "05-op rp.gb",
+                                       "06-ld r,r.gb",
+                                       "07-jr,jp,call,ret,rst.gb",
+                                       "08-misc instrs.gb",
+                                       "09-op r,r.gb",
+                                       "10-bit ops.gb",
+                                       "11-op a,(hl).gb"};
 
   // TEST
   uint8_t rom_reboot_vec[0x100];
-  BootLoadTestRom(&rom, "roms/cpu_instrs.gb");
+  char file[128];
+  sprintf(file, TEST_DIR "%s", DebugFiles[0]);
+  if (BootLoadTestRom(&rom, file)) {
+    printf("Rom loading failed. Exiting\n");
+    return 1;
+  }
   // BootLoadTestRom(&rom, "roms/Tetris (World) (Rev A).gb");
   // BootLoadTestRom(&rom, "roms/Dr. Mario (World).gb");
   // BootLoadTestRom(&rom, "roms/Link's Awakening.gb");
@@ -48,15 +66,18 @@ int main() {
   WinInit(window, DISPLAY_WIDTH << 1, DISPLAY_HEIGHT << 1);
 
   // TILEWINDOW
+  /*
   static uint32_t tilebuffer[128 * 128];
   struct mfb_window* tilewindow =
       mfb_open("Gameboy Emulator", 128 << 1, 128 << 1);
   WinInit(window, 128 << 1, 128 << 1);
+  */
 
   // CPU
   memset(ram, 0x00, 0x10000);
-  memcpy(ram, rom, 0x4000);  // copy BNK0
-  memcpy(ram, boot, 0x100);  // insert BIOS
+  memcpy(ram, rom, 0x4000);                    // copy BNK0
+  memcpy(ram + 0x4000, rom + 0x4000, 0x4000);  // copy BNK0
+  memcpy(ram, boot, 0x100);                    // insert BIOS
   uint8_t cycles;
   bool IME = false;
 
@@ -83,7 +104,6 @@ int main() {
 
   struct timespec timerA, timerB;
 
-  // SETUP
   while (1) {
     const int MAXCYCLES = 69905;
     int cyclesThisUpdate = 0;
@@ -99,7 +119,10 @@ int main() {
       }
       // CPU
       if (!hlt) {
-        if (CpuStep(ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK) break;
+        if (CpuStep(ram, &pc, &sp, &reg, &hlt, &cycles, &IME) != CPU_OK) {
+          getchar();
+          exit(0);
+        }
         DebugReadBlarggsSerial(ram);
       }
       // UPDATE
@@ -114,9 +137,11 @@ int main() {
     if (window) WinUpdate(window, framebuffer, ram);
     if (window)
       if (!mfb_wait_sync(window)) window = 0x0;
+    /*
     if (tilewindow) TileUpdate(tilewindow, tilebuffer, ram);
     if (tilewindow)
       if (!mfb_wait_sync(tilewindow)) tilewindow = 0x0;
+      */
     // TIMER SYNC
     /*
     clock_gettime(CLOCK_REALTIME, &timerB);

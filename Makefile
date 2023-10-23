@@ -14,7 +14,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c99 -g -Iminifb/include 
 CPPFLAGS += -Wall -Werror -Wpedantic
 
-LDFLAGS ?= -lX11 -L./$(LIB_DIR) -lminifb -lX11 -lGL
+LDFLAGS ?= -lX11 -L./$(LIB_DIR) -lminifb -lX11 -lGL -lncurses
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) $(LIB_DIR)/libminifb.a
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
